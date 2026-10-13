@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
+import ErrorBoundary from './ui/ErrorBoundary.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, OPEN_STEPS, STEP_CAP } from './data/options.js'
 import { addBommai, loadBommais, subscribeBommais, storeKind } from './lib/store.js'
@@ -246,27 +247,29 @@ export default function App() {
     <ThumbnailProvider>
       <div className={`app mode-${mode}`}>
         <div className="stage">
-          <GoluScene
-            bommais={bommais}
-            mode={mode}
-            draft={draft}
-            myIds={myIds}
-            spawns={spawns}
-            selectedStep={selectedStep}
-            hoverStep={hoverStep}
-            onHoverStep={setHoverStep}
-            fullSteps={fullSteps}
-            onPickStep={pickStep}
-            onLanded={onLanded}
-            focusId={focusId}
-            tagId={tagId}
-            onPickBommai={(b) => {
-              if (mode === 'home' && b) setMode('explore')
-              setTagId(b ? b.id : null)
-            }}
-            celebrate={celebrate}
-            paused={mode === 'create'}
-          />
+          <ErrorBoundary name="golu scene" fallback={null}>
+            <GoluScene
+              bommais={bommais}
+              mode={mode}
+              draft={draft}
+              myIds={myIds}
+              spawns={spawns}
+              selectedStep={selectedStep}
+              hoverStep={hoverStep}
+              onHoverStep={setHoverStep}
+              fullSteps={fullSteps}
+              onPickStep={pickStep}
+              onLanded={onLanded}
+              focusId={focusId}
+              tagId={tagId}
+              onPickBommai={(b) => {
+                if (mode === 'home' && b) setMode('explore')
+                setTagId(b ? b.id : null)
+              }}
+              celebrate={celebrate}
+              paused={mode === 'create'}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* HOME */}
@@ -307,16 +310,18 @@ export default function App() {
 
         {/* CREATE */}
         {mode === 'create' && (
-          <Creator
-            initial={draft}
-            count={count}
-            onBack={() => setMode('home')}
-            onDone={(cfg) => {
-              setDraft(cfg)
-              setSelectedStep(null)
-              setMode('place')
-            }}
-          />
+          <ErrorBoundary name="creator">
+            <Creator
+              config={draft}
+              onChange={setDraft}
+              count={count}
+              onBack={() => setMode('home')}
+              onDone={() => {
+                setSelectedStep(null)
+                setMode('place')
+              }}
+            />
+          </ErrorBoundary>
         )}
 
         {/* PLACE */}

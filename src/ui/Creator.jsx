@@ -4,8 +4,9 @@ import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import Bommai from '../three/bommai/Bommai.jsx'
 import { Cyl, Torus, GOLD } from '../three/prims.jsx'
-import { useThumb } from '../three/Thumbnails.jsx'
+import { useThumb, useThumbsFailed } from '../three/Thumbnails.jsx'
 import SoftEnv from '../three/SoftEnv.jsx'
+import ErrorBoundary from './ErrorBoundary.jsx'
 import {
   SKIN_TONES,
   BODIES,
@@ -33,7 +34,9 @@ function Tile({ selected, onClick, label, frame, config, multi }) {
   const url = useThumb(frame, config)
   return (
     <button className={`tile ${selected ? 'is-on' : ''}`} onClick={onClick} aria-pressed={selected}>
-      <span className="tile-img">{url ? <img src={url} alt="" draggable={false} /> : <span className="tile-spin" />}</span>
+      <span className="tile-img">
+        {url ? <img src={url} alt="" draggable={false} /> : url === false ? <span className="tile-glyph">{label[0]}</span> : <span className="tile-spin" />}
+      </span>
       <span className="tile-label">{label}</span>
       {multi && <span className="tile-check">{selected ? '✓' : '+'}</span>}
     </button>
@@ -157,6 +160,12 @@ function Options({ cat, config, set }) {
   }
 }
 
+// Its own component so only this line re-renders as thumbnails finish.
+function ThumbNote() {
+  const failed = useThumbsFailed()
+  return failed ? <p className="thumb-note">{`Option pictures couldn't load on this browser (${failed}).`}</p> : null
+}
+
 function PreviewBommai({ config, bump }) {
   const ref = useRef()
   const last = useRef({ bump, at: -10 })
@@ -203,12 +212,12 @@ function Preview({ config, bump }) {
   )
 }
 
-export default function Creator({ initial, onBack, onDone, count }) {
-  const [config, setConfig] = useState(initial)
+// The config lives in App (config + onChange) so the Bommai survives if this screen remounts.
+export default function Creator({ config, onChange, onBack, onDone, count }) {
   const [cat, setCat] = useState('body')
   const [bump, setBump] = useState(0)
   const set = (patch) => {
-    setConfig((c) => ({ ...c, ...patch }))
+    onChange((c) => ({ ...c, ...patch }))
     setBump((b) => b + 1)
   }
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
@@ -226,7 +235,8 @@ export default function Creator({ initial, onBack, onDone, count }) {
           <h2>Make your Bommai</h2>
         </div>
         <div className="creator-count">
-          <b>{count}</b> already on the Golu
+          <b>{count}</b>
+          <span> already on the Golu</span>
         </div>
       </header>
 
@@ -241,22 +251,31 @@ export default function Creator({ initial, onBack, onDone, count }) {
 
       <main className="opt-panel" ref={gridRef}>
         <div className="opt-head">
-          <span className="eyebrow">
-            {String(idx + 1).padStart(2, '0')} / {String(CATEGORIES.length).padStart(2, '0')}
-          </span>
+          <span className="eyebrow">{`${String(idx + 1).padStart(2, '0')} / ${String(CATEGORIES.length).padStart(2, '0')}`}</span>
           <h3>{CATEGORIES[idx].label}</h3>
         </div>
         <Options cat={cat} config={config} set={set} />
+        <ThumbNote />
         {idx < CATEGORIES.length - 1 && (
           <button className="btn-next" onClick={() => setCat(CATEGORIES[idx + 1].id)}>
-            Next: {CATEGORIES[idx + 1].label} →
+            {`Next: ${CATEGORIES[idx + 1].label} →`}
           </button>
         )}
       </main>
 
       <aside className="preview">
         <div className="preview-stage">
-          <Preview config={config} bump={bump} />
+          <ErrorBoundary
+            name="preview"
+            fallback={(e) => (
+              <div className="preview-fallback">
+                <b>The 3D preview couldn't load</b>
+                <small>{e?.message || String(e)}</small>
+              </div>
+            )}
+          >
+            <Preview config={config} bump={bump} />
+          </ErrorBoundary>
           <button className="btn-dice" onClick={() => set(randomConfig(config.name))} title="Surprise me">
             <span aria-hidden>🎲</span> Surprise me
           </button>
@@ -267,7 +286,10 @@ export default function Creator({ initial, onBack, onDone, count }) {
             value={config.name}
             maxLength={20}
             placeholder="Your name"
-            onChange={(e) => setConfig((c) => ({ ...c, name: e.target.value }))}
+            onChange={(e) => {
+              const name = e.target.value
+              onChange((c) => ({ ...c, name }))
+            }}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           />
         </label>

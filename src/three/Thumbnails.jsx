@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRe
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import Bommai from './bommai/Bommai.jsx'
 import SoftEnv from './SoftEnv.jsx'
+import ErrorBoundary from '../ui/ErrorBoundary.jsx'
 
 // Renders option tiles as real little 3D renders of the Bommai, one frame per tile, on a
 // single hidden canvas. Results are cached by (framing + config).
@@ -46,6 +47,7 @@ function Worker({ job, onDone }) {
 export function ThumbnailProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [version, force] = useState(0)
+  const [failed, setFailed] = useState(null) // error message once the thumbnail canvas breaks
   const pending = useRef(new Set())
 
   const request = useCallback((key, frame, config) => {
@@ -62,34 +64,42 @@ export function ThumbnailProvider({ children }) {
   }, [])
 
   return (
-    <ThumbCtx.Provider value={useMemo(() => ({ request, version }), [request, version])}>
+    <ThumbCtx.Provider value={useMemo(() => ({ request, version, failed }), [request, version, failed])}>
       {children}
       <div className="thumb-factory" aria-hidden>
-        <Canvas
-          dpr={1}
-          gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true }}
-          camera={{ fov: 30, near: 0.05, far: 20 }}
-          frameloop={queue.length ? 'always' : 'never'}
-        >
-          <hemisphereLight args={['#fff2dc', '#8a4a30', 1.1]} />
-          <directionalLight position={[-2, 4, 4]} intensity={2.1} color="#ffe6c4" />
-          <directionalLight position={[3, 1, 2]} intensity={0.5} />
-          <SoftEnv intensity={0.25} />
-          <Worker job={queue[0]} onDone={done} />
-        </Canvas>
+        {/* if WebGL fails here, tiles fall back to plain labels instead of taking the page down */}
+        {!failed && (
+          <ErrorBoundary name="thumbnails" fallback={null} onError={(e) => setFailed(e?.message || String(e))}>
+            <Canvas
+              dpr={1}
+              gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true }}
+              camera={{ fov: 30, near: 0.05, far: 20 }}
+              frameloop={queue.length ? 'always' : 'never'}
+            >
+              <hemisphereLight args={['#fff2dc', '#8a4a30', 1.1]} />
+              <directionalLight position={[-2, 4, 4]} intensity={2.1} color="#ffe6c4" />
+              <directionalLight position={[3, 1, 2]} intensity={0.5} />
+              <SoftEnv intensity={0.25} />
+              <Worker job={queue[0]} onDone={done} />
+            </Canvas>
+          </ErrorBoundary>
+        )}
       </div>
     </ThumbCtx.Provider>
   )
 }
 
+export const useThumbsFailed = () => useContext(ThumbCtx)?.failed || null
+
+// Returns the image URL, undefined while it renders, or false if thumbnails are unavailable.
 export function useThumb(frame, config) {
-  const { request } = useContext(ThumbCtx) || {}
+  const { request, failed } = useContext(ThumbCtx) || {}
   // the name doesn't change how a Bommai looks, so typing it must not invalidate every tile
   const { name, ...look } = config
   const key = frame + JSON.stringify(look)
   const url = cache.get(key)
   useLayoutEffect(() => {
-    if (!url) request?.(key, frame, look)
+    if (!url && !failed) request?.(key, frame, look)
   })
-  return url
+  return url || (failed ? false : undefined)
 }
