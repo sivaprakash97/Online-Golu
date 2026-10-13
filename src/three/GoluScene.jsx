@@ -3,18 +3,14 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import Golu from './golu/Golu.jsx'
-import { GOLU, computeLayout, nextSlotPreview } from './golu/layout.js'
+import { GOLU, computeLayout } from './golu/layout.js'
 import Bommai from './bommai/Bommai.jsx'
 import Petals from './Petals.jsx'
 import SoftEnv from './SoftEnv.jsx'
-import { Torus } from './prims.jsx'
+import DragLayer from './DragLayer.jsx'
 
 const HELD = new THREE.Vector3(-2.8, 0.02, 2.0) // where your Bommai waits, on the floor in front of the Golu
-
-function slotFor(bommais, step, draft) {
-  const p = nextSlotPreview(bommais, step, draft)
-  return [p.x, p.y, p.z]
-}
+const DRAFT_SCALE = 1.25
 
 function shotFor(name, aspect, focus) {
   // pull back on narrow screens so the whole Golu still fits
@@ -167,7 +163,8 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
 
 // Every Bommai glides to its layout slot, so when someone joins the step the others shuffle over.
 // `spawn` drives the arrival: 'pop' (first load), 'fly' (your placement), 'drop' (someone else, live).
-function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onLanded }) {
+// `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still shows the name tag.
+function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLanded }) {
   const ref = useRef()
   const inner = useRef()
   const st = useRef({ phase: spawn ? 'wait' : 'idle', start: null, from: null, landedAt: null })
@@ -191,7 +188,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onLanded }) {
     if (s.phase === 'wait') {
       if (s.start == null) s.start = now + (spawn?.delay || 0)
       if (now >= s.start) {
-        s.phase = spawn.type
+        s.phase = spawn?.type || 'idle' // the spawn can be cancelled before it starts
         s.from = g.position.clone()
       } else return
     }
@@ -238,17 +235,18 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onLanded }) {
       <group
         ref={inner}
         onPointerOver={(e) => {
-          if (!onPick) return
+          if (!onPick && !onGrab) return
           e.stopPropagation()
           setHover(true)
-          document.body.style.cursor = 'pointer'
+          document.body.style.cursor = onGrab ? 'grab' : 'pointer'
         }}
         onPointerOut={() => {
           setHover(false)
           document.body.style.cursor = ''
         }}
+        onPointerDown={(e) => onGrab?.(e, b, tgt)}
         onClick={(e) => {
-          if (!onPick) return
+          if (!onPick || onGrab) return
           e.stopPropagation()
           onPick(b)
         }}
@@ -267,47 +265,33 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onLanded }) {
   )
 }
 
-function DraftOnKolam({ draft, aimStep }) {
+// Your new Bommai waiting on the kolam: hops a little until you pick it up and drag it onto a step.
+function DraftOnKolam({ draft, onGrab }) {
   const ref = useRef()
   useFrame(({ clock }, dt) => {
     const g = ref.current
     if (!g) return
     const t = clock.elapsedTime
-    // little excited hops while waiting to be placed
     const hop = Math.max(0, Math.sin(t * 4.2)) * 0.12
     g.position.set(HELD.x, HELD.y + hop, HELD.z)
-    const want = aimStep ? 0 : Math.sin(t * 0.8) * 0.3
-    g.rotation.y += (want - g.rotation.y) * (1 - Math.exp(-dt * 6))
+    g.rotation.y += (Math.sin(t * 0.8) * 0.3 - g.rotation.y) * (1 - Math.exp(-dt * 6))
   })
   return (
-    <group ref={ref} scale={1.25}>
+    <group
+      ref={ref}
+      scale={DRAFT_SCALE}
+      onPointerOver={(e) => (e.stopPropagation(), (document.body.style.cursor = 'grab'))}
+      onPointerOut={() => (document.body.style.cursor = '')}
+      onPointerDown={onGrab}
+    >
       <Bommai config={draft} idle={false} />
-      <Html position={[0, 1.2, 0]} center distanceFactor={6} style={{ pointerEvents: 'none' }}>
+      <Html position={[0, 1.25, 0]} center distanceFactor={6} style={{ pointerEvents: 'none' }}>
         <div className="nametag mine">
           <span className="nametag-you">YOU</span>
           {draft.name || 'Your Bommai'}
         </div>
+        <div className="grab-hint">Drag me onto a step</div>
       </Html>
-    </group>
-  )
-}
-
-function SlotMarker({ at }) {
-  const ref = useRef()
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-    const t = clock.elapsedTime
-    const s = 1 + Math.sin(t * 5) * 0.08
-    ref.current.scale.set(s, s, s)
-    ref.current.children[1].position.y = 1.25 + Math.sin(t * 5) * 0.08
-  })
-  return (
-    <group ref={ref} position={at}>
-      <Torus r={0.32} t={0.035} rs={6} ts={28} position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: 1.4 }} shadow={false} />
-      <mesh position={[0, 1.25, 0]} rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[0.13, 0.26, 4]} />
-        <meshStandardMaterial color="#ffcf5a" emissive="#ffb300" emissiveIntensity={1.2} flatShading />
-      </mesh>
     </group>
   )
 }
@@ -343,12 +327,9 @@ export default function GoluScene({
   draft,
   myIds,
   spawns,
-  selectedStep,
-  hoverStep,
-  fullSteps,
-  onHoverStep,
-  onPickStep,
-  onLanded,
+  canMove,
+  onDropBommai,
+  onReject,
   focusId,
   tagId,
   onPickBommai,
@@ -358,16 +339,22 @@ export default function GoluScene({
 }) {
   const layout = useMemo(() => computeLayout(bommais), [bommais])
   const placing = mode === 'place'
-  const tierStates = {}
-  if (placing) {
-    for (let k = 1; k <= 9; k++) {
-      if (k === selectedStep) tierStates[k] = 'selected'
-      else if (k === hoverStep) tierStates[k] = fullSteps.has(k) ? 'full' : 'hover'
-    }
-  }
+  const exploring = mode === 'home' || mode === 'done'
   const focusTarget = focusId && layout.get(focusId)
   const shot = focusTarget ? 'focus' : placing || mode === 'placing' ? 'place' : 'home'
   const focus = focusTarget ? [focusTarget.x, focusTarget.y, focusTarget.z] : null
+  const drag = useRef()
+  const [carrying, setCarrying] = useState(null) // key of the Bommai being carried ('draft' or an id)
+  // a Bommai that has been carried reappears where it was put down, without replaying its arrival
+  const settled = useRef(new Set())
+  const onDragChange = (key) => {
+    if (key === null && carrying && carrying !== 'draft') settled.current.add(carrying)
+    setCarrying(key)
+  }
+
+  const grabDraft = (e) =>
+    drag.current?.press(e, { key: 'draft', kind: 'draft', config: draft, origin: [HELD.x, HELD.y, HELD.z], scale: DRAFT_SCALE })
+  const grabPlaced = (e, b, at) => drag.current?.press(e, { key: b.id, kind: 'placed', id: b.id, config: b, origin: [at.x, at.y, at.z], scale: 1 })
 
   return (
     <Canvas
@@ -381,32 +368,35 @@ export default function GoluScene({
       <Suspense fallback={null}>
         <Lights />
         <SoftEnv intensity={0.22} />
-        <CameraRig shot={shot} focus={focus} controlsEnabled={mode === 'home' || mode === 'done'} view={view} />
-        <Golu
-          interactive={placing}
-          tierStates={tierStates}
-          onTierOver={(k) => onHoverStep?.(k)}
-          onTierOut={() => onHoverStep?.(null)}
-          onTierPick={(k) => onPickStep?.(k)}
-        />
+        <CameraRig shot={shot} focus={focus} controlsEnabled={exploring} view={view} />
+        <Golu />
         {bommais.map((b) => {
           const t = layout.get(b.id)
-          if (!t) return null
+          if (!t || carrying === b.id) return null
+          const mine = myIds.includes(b.id)
           return (
             <PlacedBommai
               key={b.id}
               b={b}
               target={t}
-              spawn={spawns[b.id]}
-              isMine={myIds.includes(b.id)}
+              spawn={settled.current.has(b.id) ? undefined : spawns[b.id]}
+              isMine={mine}
               showTag={tagId === b.id}
-              onPick={mode === 'done' || mode === 'home' ? onPickBommai : null}
-              onLanded={onLanded}
+              onPick={exploring ? onPickBommai : null}
+              onGrab={exploring && mine && canMove ? grabPlaced : null}
             />
           )
         })}
-        {placing && draft && <DraftOnKolam draft={draft} aimStep={selectedStep || hoverStep} />}
-        {placing && selectedStep && <SlotMarker key={selectedStep} at={slotFor(bommais, selectedStep, draft)} />}
+        {placing && draft && carrying !== 'draft' && <DraftOnKolam draft={draft} onGrab={grabDraft} />}
+        <DragLayer
+          ref={drag}
+          bommais={bommais}
+          showMarkers={placing}
+          onDrop={onDropBommai}
+          onReject={onReject}
+          onDragChange={onDragChange}
+          onClickItem={(item) => item.kind === 'placed' && onPickBommai?.(item.config)}
+        />
         {celebrate && <Petals key={celebrate.key} center={celebrate.at} />}
       </Suspense>
     </Canvas>

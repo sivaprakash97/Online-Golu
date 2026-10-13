@@ -20,9 +20,11 @@ export const SEED_BOMMAIS = [
   { name: 'Tara', step: 5, body: 'slim', skin_tone: 'brown', hair: 'top-bun', hair_color: 'chestnut', outfit: 'hoodie', outfit_color: 'parrot', face: 'dots', face_extras: ['shades'], accessory: 'plant', pose: 'sitting' },
   { name: 'Gopal', step: 4, body: 'round', skin_tone: 'deep-brown', hair: 'curly', hair_color: 'silver', outfit: 'tee-jeans', outfit_color: 'peacock', face: 'sleepy', face_extras: ['beard', 'glasses'], accessory: 'book', pose: 'sitting' },
   { name: 'Zoya', step: 6, body: 'regular', skin_tone: 'honey', hair: 'ponytail', hair_color: 'black', outfit: 'tee-jeans', outfit_color: 'rose', face: 'sparkle', face_extras: ['blush'], accessory: 'camera', pose: 'holding' },
-].map((b, i) => ({
+].map((b, i, all) => ({
   ...b,
   id: `seed-${i + 1}`,
+  // spots fill centre-out per step, in join order (same order as the slots migration)
+  slot: [3, 2, 4, 1, 5, 0, 6][all.slice(0, i).filter((o) => o.step === b.step).length],
   // spread fictional join times over the past few days
   created_at: new Date(Date.UTC(2026, 9, 10, 9) + i * 3.7 * 3600e3).toISOString(),
   seeded: true,

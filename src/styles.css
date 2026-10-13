@@ -319,6 +319,18 @@ input:focus-visible {
   box-shadow: 0 3px 0 var(--turmeric-deep);
   color: #2a1208;
 }
+.grab-hint {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(20, 10, 15, 0.75);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+  animation: pop 0.3s both;
+}
 .nametag-you {
   font-size: 9px;
   letter-spacing: 0.14em;
@@ -351,93 +363,6 @@ input:focus-visible {
   margin: 0;
   color: var(--ink-2);
   font-size: 14px;
-}
-.step-rail {
-  position: absolute;
-  right: clamp(12px, 2.5vw, 36px);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.7);
-  animation: slide-in 0.5s 0.15s both;
-}
-.rail-cap {
-  font-family: var(--display);
-  font-size: 8.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  text-align: center;
-  padding: 4px 0 0;
-}
-.rail-step {
-  width: 76px;
-  height: 40px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  background: var(--panel-2);
-  font-family: var(--display);
-  font-weight: 700;
-  transition: background 0.15s, transform 0.12s;
-}
-.rail-step:hover,
-.rail-step.is-hover {
-  background: #4a2834;
-}
-.rail-step.is-on {
-  background: var(--turmeric);
-  color: #2a1208;
-  transform: translateX(-6px);
-  box-shadow: 0 3px 0 var(--turmeric-deep);
-}
-.rail-step.locked {
-  background: #13505a;
-  color: #bfe0dc;
-  opacity: 0.85;
-  cursor: not-allowed;
-}
-.rail-step.full,
-.rail-step.full:hover {
-  background: var(--panel-2);
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.rail-num {
-  font-size: 16px;
-}
-.rail-count {
-  font-size: 11px;
-  opacity: 0.65;
-}
-.rail-lock {
-  font-size: 12px;
-  color: var(--gold);
-}
-.locked-note {
-  position: absolute;
-  left: 0;
-  right: 0;
-  margin-inline: auto;
-  width: fit-content;
-  top: 30%;
-  background: #13505a;
-  color: #e6f4f1;
-  padding: 12px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(232, 179, 60, 0.5);
-  font-size: 14px;
-  animation: pop 0.3s both;
-  max-width: 90vw;
-  text-align: center;
 }
 
 /* ---------- celebrate ---------- */
@@ -1002,17 +927,6 @@ input:focus-visible {
   }
   .place-head h2 {
     font-size: 16px;
-  }
-  .step-rail {
-    gap: 3px;
-    padding: 6px;
-  }
-  .rail-step {
-    height: 30px;
-    width: 64px;
-  }
-  .rail-cap {
-    font-size: 7.5px;
   }
   .celebrate-card {
     padding: 12px 18px;

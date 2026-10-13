@@ -3,8 +3,8 @@ import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, OPEN_STEPS, STEP_CAP } from './data/options.js'
-import { addBommai, loadBommais, subscribeBommais, storeKind } from './lib/store.js'
-import { computeLayout } from './three/golu/layout.js'
+import { addBommai, moveBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
+import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
 
 const MINE_KEY = 'golu.mine'
@@ -53,49 +53,11 @@ function Counter({ n, live }) {
   )
 }
 
-function StepRail({ counts, hover, selected, onHover, onPick }) {
-  return (
-    <div className="step-rail" role="radiogroup" aria-label="Choose a step">
-      <div className="rail-cap">Traditional</div>
-      {[9, 8].map((k) => (
-        <div key={k} className="rail-step locked" aria-disabled title="Reserved for the traditional Golu">
-          <span className="rail-num">{k}</span>
-          <span className="rail-lock" aria-hidden>
-            ✦
-          </span>
-        </div>
-      ))}
-      <div className="rail-cap">Community</div>
-      {[7, 6, 5, 4, 3, 2, 1].map((k) => {
-        const full = (counts[k] || 0) >= STEP_CAP
-        return (
-          <button
-            key={k}
-            role="radio"
-            aria-checked={selected === k}
-            aria-disabled={full}
-            title={full ? 'This step is full' : undefined}
-            className={`rail-step ${full ? 'full' : ''} ${selected === k ? 'is-on' : ''} ${hover === k ? 'is-hover' : ''}`}
-            onMouseEnter={() => onHover(k)}
-            onMouseLeave={() => onHover(null)}
-            onClick={() => onPick(k)}
-          >
-            <span className="rail-num">{k}</span>
-            <span className="rail-count">{full ? 'Full' : `${counts[k] || 0}/${STEP_CAP}`}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function App() {
   const [bommais, setBommais] = useState([])
   const [mode, setMode] = useState('home') // home (explorable Golu) | create | place | placing | done
   const [view, setView] = useState({ kind: null, n: 0 }) // camera commands from the view buttons
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
-  const [hoverStep, setHoverStep] = useState(null)
-  const [selectedStep, setSelectedStep] = useState(null)
   const [spawns, setSpawns] = useState({})
   const [myIds, setMyIds] = useState(readMine)
   const [focusId, setFocusId] = useState(null)
@@ -103,8 +65,6 @@ export default function App() {
   const [celebrate, setCelebrate] = useState(null)
   const [toast, setToast] = useState(null)
   const [justPlaced, setJustPlaced] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState(null)
   const shared = useRef(new URLSearchParams(location.search).get('b'))
 
   // load + realtime
@@ -115,8 +75,10 @@ export default function App() {
       const t0 = 0.25
       setSpawns(Object.fromEntries(rows.map((r, i) => [r.id, { type: 'pop', delay: t0 + i * 0.07 }])))
       unsub = subscribeBommais((row) => {
+        // a new Bommai drops in; a moved one glides to its new spot
         setBommais((list) => {
-          if (list.some((b) => b.id === row.id)) return list
+          const i = list.findIndex((b) => b.id === row.id)
+          if (i >= 0) return list[i].step === row.step && list[i].slot === row.slot ? list : list.map((b) => (b.id === row.id ? row : b))
           setSpawns((s) => (s[row.id] ? s : { ...s, [row.id]: { type: 'drop', delay: 0 } }))
           return [...list, row]
         })
@@ -148,67 +110,64 @@ export default function App() {
   // one Bommai per visitor
   const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))
 
-  // someone else may take the last spot on the step you picked
-  useEffect(() => {
-    if (selectedStep && fullSteps.has(selectedStep) && mode === 'place') setSelectedStep(null)
-  }, [fullSteps, selectedStep, mode])
-
   const startCreate = () => {
     setFocusId(null)
     setTagId(null)
     setMode('create')
   }
 
-  const showNote = (msg) => {
-    setNote(msg)
-    clearTimeout(showNote.t)
-    showNote.t = setTimeout(() => setNote(null), 2400)
+  const placeError = (e) => {
+    console.error(e)
+    if (e.code === 'slot_taken') showToast('Someone just took that spot. Try another one.')
+    else if (e.code === 'step_full') showToast('That step just filled up. Try another one.')
+    else if (e.code === 'already_placed') showToast('You already have a Bommai on the Golu.')
+    else if (e.code === 'locked_step') showToast('The top two steps are reserved for the deities and gods.')
+    else if (e.code === 'move_unavailable') showToast("Moving isn't switched on for this Golu yet.")
+    else showToast('Could not place your Bommai. Try again?')
   }
 
-  const pickStep = (k) => {
-    if (k >= 8) return showNote('The top two steps hold the traditional Golu. Pick any step from 1 to 7.')
-    if (fullSteps.has(k)) return showNote(`Step ${k} is full. Pick another step.`)
-    setSelectedStep(k)
-  }
-
-  const confirmPlace = async () => {
-    if (!selectedStep || busy || hasMine) return
-    setBusy(true)
+  // Dropped on a free spot by drag and drop: place the new Bommai, or move your own.
+  // Resolves true when it worked; false sends the doll back to where it came from.
+  const onDropBommai = async (item, step, slot) => {
+    if (item.kind === 'draft') {
+      if (hasMine) return false
+      try {
+        const row = await addBommai(draft, step, slot)
+        setBommais((list) => (list.some((b) => b.id === row.id) ? list : [...list, row]))
+        // it was just set down by hand: no drop-in animation (the live update may have queued one)
+        setSpawns(({ [row.id]: _, ...rest }) => rest)
+        const mine = [...myIds, row.id]
+        setMyIds(mine)
+        writeMine(mine)
+        setJustPlaced(row)
+        setMode('placing')
+        const p = slotPos(step, slot)
+        setCelebrate({ key: row.id, at: [p.x, p.y, p.z] })
+        setTimeout(() => setMode('done'), 1500)
+        return true
+      } catch (e) {
+        placeError(e)
+        return false
+      }
+    }
+    const before = bommais.find((b) => b.id === item.id)
+    if (!before) return false
+    if (before.step === step && computeLayout(bommais).get(before.id)?.slot === slot) return true
+    setBommais((list) => list.map((b) => (b.id === item.id ? { ...b, step, slot } : b)))
     try {
-      const row = await addBommai(draft, selectedStep)
-      setSpawns((s) => ({ ...s, [row.id]: { type: 'fly', delay: 0 } }))
-      setBommais((list) => (list.some((b) => b.id === row.id) ? list : [...list, row]))
-      const mine = [...myIds, row.id]
-      setMyIds(mine)
-      writeMine(mine)
-      setJustPlaced(row)
-      setMode('placing')
+      await moveBommai(item.id, step, slot)
+      return true
     } catch (e) {
-      console.error(e)
-      if (e.code === 'step_full') {
-        setSelectedStep(null)
-        showToast('That step just filled up. Pick another one.')
-      } else if (e.code === 'already_placed') showToast('You already have a Bommai on the Golu.')
-      else if (e.code === 'locked_step') showToast('That step is reserved for the traditional Golu.')
-      else showToast('Could not place your Bommai. Try again?')
-    } finally {
-      setBusy(false)
+      setBommais((list) => list.map((b) => (b.id === item.id ? before : b)))
+      placeError(e)
+      return false
     }
   }
 
-  const onLanded = useCallback(
-    (b) => {
-      if (!justPlaced || b.id !== justPlaced.id) return
-      const t = computeLayout(bommais).get(b.id)
-      setCelebrate({ key: b.id, at: [t.x, t.y, t.z] })
-      setFocusId(b.id)
-      setTimeout(() => {
-        setFocusId(null)
-        setMode('done')
-      }, 1500)
-    },
-    [justPlaced, bommais],
-  )
+  const onReject = (reason, step) => {
+    if (reason === 'reserved') showToast('🙏 The top two steps are reserved for the deities and gods.')
+    else if (reason === 'full') showToast(`Step ${step} is full. Try another step.`)
+  }
 
   const shareMine = async () => {
     const id = justPlaced?.id || myIds[myIds.length - 1]
@@ -260,12 +219,9 @@ export default function App() {
             draft={draft}
             myIds={myIds}
             spawns={spawns}
-            selectedStep={selectedStep}
-            hoverStep={hoverStep}
-            onHoverStep={setHoverStep}
-            fullSteps={fullSteps}
-            onPickStep={pickStep}
-            onLanded={onLanded}
+            canMove={canMoveBommais()}
+            onDropBommai={onDropBommai}
+            onReject={onReject}
             focusId={focusId}
             tagId={tagId}
             onPickBommai={(b) => {
@@ -293,7 +249,9 @@ export default function App() {
               <Counter n={count} live={live} />
             </header>
             <div className="cta-row">{mainCta}</div>
-            <p className="explore-hint">Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is</p>
+            <p className="explore-hint">
+              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is
+            </p>
             <div className="view-controls" role="group" aria-label="View">
               <button onClick={() => camera('in')} aria-label="Zoom in" title="Zoom in">
                 +
@@ -316,7 +274,6 @@ export default function App() {
             onBack={() => setMode('home')}
             onDone={(cfg) => {
               setDraft(cfg)
-              setSelectedStep(null)
               setMode('place')
             }}
           />
@@ -327,17 +284,12 @@ export default function App() {
           <>
             <header className="place-head">
               <span className="eyebrow">Last step</span>
-              <h2>Choose a step for your Bommai</h2>
-              <p>Steps 1 to 7 belong to the community, {STEP_CAP} Bommais each. The top two hold the traditional Golu.</p>
+              <h2>Place your Bommai on the Golu</h2>
+              <p>Pick it up and drop it on any glowing spot. The top two steps are reserved for the deities and gods.</p>
             </header>
-            <StepRail counts={stepCounts} hover={hoverStep} selected={selectedStep} onHover={setHoverStep} onPick={pickStep} />
-            {note && <div className="locked-note">{note}</div>}
             <div className="cta-row">
               <button className="btn-secondary" onClick={() => setMode('create')}>
                 ← Edit
-              </button>
-              <button className="btn-primary" disabled={!selectedStep || busy} onClick={confirmPlace}>
-                {selectedStep ? `Place on step ${selectedStep}` : 'Tap a step'}
               </button>
             </div>
           </>
