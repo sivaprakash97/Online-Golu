@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
-import { DEFAULT_CONFIG, randomConfig } from './data/options.js'
+import { DEFAULT_CONFIG, OPEN_STEPS, STEP_CAP } from './data/options.js'
 import { addBommai, loadBommais, subscribeBommais, storeKind } from './lib/store.js'
 import { computeLayout } from './three/golu/layout.js'
 import { share } from './lib/share.js'
@@ -53,12 +53,7 @@ function Counter({ n, live }) {
   )
 }
 
-function StepRail({ bommais, hover, selected, onHover, onPick }) {
-  const counts = useMemo(() => {
-    const m = {}
-    bommais.forEach((b) => (m[b.step] = (m[b.step] || 0) + 1))
-    return m
-  }, [bommais])
+function StepRail({ counts, hover, selected, onHover, onPick }) {
   return (
     <div className="step-rail" role="radiogroup" aria-label="Choose a step">
       <div className="rail-cap">Traditional</div>
@@ -71,20 +66,25 @@ function StepRail({ bommais, hover, selected, onHover, onPick }) {
         </div>
       ))}
       <div className="rail-cap">Community</div>
-      {[7, 6, 5, 4, 3, 2, 1].map((k) => (
-        <button
-          key={k}
-          role="radio"
-          aria-checked={selected === k}
-          className={`rail-step ${selected === k ? 'is-on' : ''} ${hover === k ? 'is-hover' : ''}`}
-          onMouseEnter={() => onHover(k)}
-          onMouseLeave={() => onHover(null)}
-          onClick={() => onPick(k)}
-        >
-          <span className="rail-num">{k}</span>
-          <span className="rail-count">{counts[k] || 0}</span>
-        </button>
-      ))}
+      {[7, 6, 5, 4, 3, 2, 1].map((k) => {
+        const full = (counts[k] || 0) >= STEP_CAP
+        return (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={selected === k}
+            aria-disabled={full}
+            title={full ? 'This step is full' : undefined}
+            className={`rail-step ${full ? 'full' : ''} ${selected === k ? 'is-on' : ''} ${hover === k ? 'is-hover' : ''}`}
+            onMouseEnter={() => onHover(k)}
+            onMouseLeave={() => onHover(null)}
+            onClick={() => onPick(k)}
+          >
+            <span className="rail-num">{k}</span>
+            <span className="rail-count">{full ? 'Full' : `${counts[k] || 0}/${STEP_CAP}`}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -103,7 +103,7 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [justPlaced, setJustPlaced] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [lockedNote, setLockedNote] = useState(false)
+  const [note, setNote] = useState(null)
   const shared = useRef(new URLSearchParams(location.search).get('b'))
 
   // load + realtime
@@ -137,24 +137,41 @@ export default function App() {
     showToast.t = setTimeout(() => setToast(null), 2600)
   }, [])
 
+  const stepCounts = useMemo(() => {
+    const m = {}
+    bommais.forEach((b) => (m[b.step] = (m[b.step] || 0) + 1))
+    return m
+  }, [bommais])
+  const fullSteps = useMemo(() => new Set(OPEN_STEPS.filter((k) => (stepCounts[k] || 0) >= STEP_CAP)), [stepCounts])
+  const goluFull = fullSteps.size === OPEN_STEPS.length
+  // one Bommai per visitor
+  const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))
+
+  // someone else may take the last spot on the step you picked
+  useEffect(() => {
+    if (selectedStep && fullSteps.has(selectedStep) && mode === 'place') setSelectedStep(null)
+  }, [fullSteps, selectedStep, mode])
+
   const startCreate = () => {
     setFocusId(null)
     setTagId(null)
     setMode('create')
   }
 
+  const showNote = (msg) => {
+    setNote(msg)
+    clearTimeout(showNote.t)
+    showNote.t = setTimeout(() => setNote(null), 2400)
+  }
+
   const pickStep = (k) => {
-    if (k >= 8) {
-      setLockedNote(true)
-      clearTimeout(pickStep.t)
-      pickStep.t = setTimeout(() => setLockedNote(false), 2400)
-      return
-    }
+    if (k >= 8) return showNote('The top two steps hold the traditional Golu. Pick any step from 1 to 7.')
+    if (fullSteps.has(k)) return showNote(`Step ${k} is full. Pick another step.`)
     setSelectedStep(k)
   }
 
   const confirmPlace = async () => {
-    if (!selectedStep || busy) return
+    if (!selectedStep || busy || hasMine) return
     setBusy(true)
     try {
       const row = await addBommai(draft, selectedStep)
@@ -167,7 +184,12 @@ export default function App() {
       setMode('placing')
     } catch (e) {
       console.error(e)
-      showToast(e.message?.includes('step') ? 'That step is reserved for the traditional Golu.' : 'Could not place your Bommai. Try again?')
+      if (e.code === 'step_full') {
+        setSelectedStep(null)
+        showToast('That step just filled up. Pick another one.')
+      } else if (e.code === 'already_placed') showToast('You already have a Bommai on the Golu.')
+      else if (e.code === 'locked_step') showToast('That step is reserved for the traditional Golu.')
+      else showToast('Could not place your Bommai. Try again?')
     } finally {
       setBusy(false)
     }
@@ -200,7 +222,21 @@ export default function App() {
     setFocusId(id)
     setTagId(id)
   }
-  const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))
+
+  // the main call to action: make one, find yours, or nothing left to take
+  const mainCta = hasMine ? (
+    <button className="btn-primary" onClick={() => (setMode('explore'), findMine())}>
+      Find my Bommai
+    </button>
+  ) : goluFull ? (
+    <button className="btn-primary" disabled>
+      The Golu is full
+    </button>
+  ) : (
+    <button className="btn-primary" onClick={startCreate}>
+      Add your Bommai
+    </button>
+  )
 
   const placing = mode === 'place'
   const count = bommais.length
@@ -219,6 +255,7 @@ export default function App() {
             selectedStep={selectedStep}
             hoverStep={hoverStep}
             onHoverStep={setHoverStep}
+            fullSteps={fullSteps}
             onPickStep={pickStep}
             onLanded={onLanded}
             focusId={focusId}
@@ -250,9 +287,7 @@ export default function App() {
             <div className="cta-row">
               {mode === 'home' ? (
                 <>
-                  <button className="btn-primary" onClick={startCreate}>
-                    Add your Bommai
-                  </button>
+                  {mainCta}
                   <button className="btn-secondary" onClick={() => setMode('explore')}>
                     Explore the Golu
                   </button>
@@ -262,14 +297,7 @@ export default function App() {
                   <button className="btn-secondary" onClick={() => (setMode('home'), setTagId(null), setFocusId(null))}>
                     ← Back
                   </button>
-                  {hasMine && (
-                    <button className="btn-secondary" onClick={findMine}>
-                      Find mine
-                    </button>
-                  )}
-                  <button className="btn-primary" onClick={startCreate}>
-                    Add your Bommai
-                  </button>
+                  {mainCta}
                 </>
               )}
             </div>
@@ -297,10 +325,10 @@ export default function App() {
             <header className="place-head">
               <span className="eyebrow">Last step</span>
               <h2>Choose a step for your Bommai</h2>
-              <p>Steps 1 to 7 belong to the community. The top two hold the traditional Golu.</p>
+              <p>Steps 1 to 7 belong to the community, {STEP_CAP} Bommais each. The top two hold the traditional Golu.</p>
             </header>
-            <StepRail bommais={bommais} hover={hoverStep} selected={selectedStep} onHover={setHoverStep} onPick={pickStep} />
-            {lockedNote && <div className="locked-note">The top two steps hold the traditional Golu. Pick any step from 1 to 7.</div>}
+            <StepRail counts={stepCounts} hover={hoverStep} selected={selectedStep} onHover={setHoverStep} onPick={pickStep} />
+            {note && <div className="locked-note">{note}</div>}
             <div className="cta-row">
               <button className="btn-secondary" onClick={() => setMode('create')}>
                 ← Edit
@@ -326,15 +354,6 @@ export default function App() {
                 </button>
                 <button className="btn-secondary" onClick={() => (setMode('explore'), findMine())}>
                   Explore
-                </button>
-                <button
-                  className="btn-link"
-                  onClick={() => {
-                    setDraft(randomConfig(''))
-                    startCreate()
-                  }}
-                >
-                  Make another
                 </button>
               </div>
             </div>

@@ -35,7 +35,8 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 
 - Schema, RLS and realtime: `supabase/migrations/20261013000000_bommais.sql`. Seeds: `supabase/seed.sql` (regenerate from `src/data/seed.js` with `npm run seed:sql`).
 - Visitors get a silent **anonymous session** (`signInAnonymously`); there is no login screen. Turn on *Authentication → Sign In / Providers → Allow anonymous sign-ins* in the Supabase dashboard.
-- Steps 8 and 9 are protected in three places: the UI never offers them, a `check (step between 1 and 7)` constraint rejects them, and the insert policy repeats the rule. Clients can only insert their own row (`auth.uid() = user_id`), cannot set `seeded`/`created_at`, and cannot update or delete. Each anonymous visitor can place up to 5 Bommais.
+- Steps 8 and 9 are protected in three places: the UI never offers them, a `check (step between 1 and 7)` constraint rejects them, and the insert policy repeats the rule. Clients can only insert their own row (`auth.uid() = user_id`), cannot set `seeded`/`created_at`, and cannot update or delete.
+- **Placement rules** (`supabase/migrations/20261014000000_placement_rules.sql`): each visitor places **one** Bommai, and each community step holds at most **7** (49 in all, demo Bommais included). The UI follows the same rules (`STEP_CAP` in `src/data/options.js`): full steps can't be picked, a visitor who already has a Bommai gets *Find my Bommai* instead of *Add your Bommai*, and a full Golu says so. To change the cap, change it in both places.
 
 ## Not in V1 (on purpose)
 

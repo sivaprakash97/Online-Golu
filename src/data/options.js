@@ -193,3 +193,6 @@ export function normalizeConfig(c = {}) {
 
 export const OPEN_STEPS = [1, 2, 3, 4, 5, 6, 7]
 export const LOCKED_STEPS = [8, 9]
+// Each community step holds at most this many Bommais (7 steps × 7 = 49 in all, demo Bommais included).
+// supabase/migrations/20261014000000_placement_rules.sql repeats this number.
+export const STEP_CAP = 7

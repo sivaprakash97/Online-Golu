@@ -255,6 +255,7 @@ export default function GoluScene({
   spawns,
   selectedStep,
   hoverStep,
+  fullSteps,
   onHoverStep,
   onPickStep,
   onLanded,
@@ -270,7 +271,7 @@ export default function GoluScene({
   if (placing) {
     for (let k = 1; k <= 9; k++) {
       if (k === selectedStep) tierStates[k] = 'selected'
-      else if (k === hoverStep) tierStates[k] = 'hover'
+      else if (k === hoverStep) tierStates[k] = fullSteps.has(k) ? 'full' : 'hover'
     }
   }
   const focusTarget = focusId && layout.get(focusId)

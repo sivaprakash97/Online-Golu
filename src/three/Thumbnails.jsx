@@ -84,10 +84,12 @@ export function ThumbnailProvider({ children }) {
 
 export function useThumb(frame, config) {
   const { request } = useContext(ThumbCtx) || {}
-  const key = frame + JSON.stringify(config)
+  // the name doesn't change how a Bommai looks, so typing it must not invalidate every tile
+  const { name, ...look } = config
+  const key = frame + JSON.stringify(look)
   const url = cache.get(key)
   useLayoutEffect(() => {
-    if (!url) request?.(key, frame, config)
+    if (!url) request?.(key, frame, look)
   })
   return url
 }

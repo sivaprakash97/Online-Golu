@@ -369,6 +369,12 @@ input:focus-visible {
   opacity: 0.85;
   cursor: not-allowed;
 }
+.rail-step.full,
+.rail-step.full:hover {
+  background: var(--panel-2);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .rail-num {
   font-size: 16px;
 }

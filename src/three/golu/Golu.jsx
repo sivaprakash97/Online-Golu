@@ -110,7 +110,7 @@ function TierHitZone({ k, state, onOver, onOut, onPick }) {
         <boxGeometry args={[W, 1.1, D]} />
         <meshBasicMaterial visible={false} />
       </mesh>
-      {state && <TierGlow y={y} front={front} locked={locked} selected={state === 'selected'} />}
+      {state && <TierGlow y={y} front={front} locked={locked || state === 'full'} selected={state === 'selected'} />}
     </group>
   )
 }
