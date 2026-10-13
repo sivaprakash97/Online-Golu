@@ -1,26 +1,30 @@
 import { createClient } from '@supabase/supabase-js'
 import { SEED_BOMMAIS } from '../data/seed.js'
-import { normalizeConfig, STEP_CAP } from '../data/options.js'
+import { normalizeConfig, spotsOnStep } from '../data/options.js'
 
 // One tiny interface over two backends:
 //   - Supabase (shared, realtime) when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set
 //   - an in-memory fallback so the prototype stays playable without a backend
-// store.list()            -> Promise<Bommai[]>
-// store.add(config, step) -> Promise<Bommai>; rejects with err.code 'step_full' | 'already_placed' | 'locked_step'
-// store.subscribe(fn)     -> unsubscribe; fn(bommai) for every insert by anyone
+// store.list()                  -> Promise<Bommai[]>
+// store.add(config, step, slot) -> Promise<Bommai>
+// store.move(id, step, slot)    -> Promise<Bommai>   (only your own Bommai)
+// store.subscribe(fn)           -> unsubscribe; fn(bommai) whenever anyone adds or moves one
+// add/move reject with err.code: 'slot_taken' | 'step_full' | 'already_placed' | 'locked_step' | 'move_unavailable'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-const COLUMNS = 'id,name,body,skin_tone,hair,hair_color,outfit,outfit_color,face,face_extras,accessory,pose,step,created_at'
+const BASE_COLUMNS = 'id,name,body,skin_tone,hair,hair_color,outfit,outfit_color,face,face_extras,accessory,pose,step,created_at'
 
 function placementError(code, message) {
   return Object.assign(new Error(message), { code })
 }
 
-// The database enforces the rules (see the placement_rules migration); turn its errors into codes the UI understands.
+// The database enforces the rules (see supabase/migrations); turn its errors into codes the UI understands.
 function toPlacementError(e) {
   const msg = e?.message || ''
+  if (e?.code === '23505') return placementError('slot_taken', msg) // unique (step, slot)
+  if (msg.includes('bommais_slot_on_step')) return placementError('slot_taken', msg) // no such spot on that step
   if (msg.includes('already has a Bommai')) return placementError('already_placed', msg)
   if (msg.includes('is full')) return placementError('step_full', msg)
   if (e?.code === '23514' || e?.code === '42501') return placementError('locked_step', msg) // check constraint / RLS
@@ -28,24 +32,44 @@ function toPlacementError(e) {
 }
 
 function toRow(r) {
-  return { ...normalizeConfig(r), id: r.id, step: r.step, created_at: r.created_at, seeded: !!r.seeded }
+  return {
+    ...normalizeConfig(r),
+    id: r.id,
+    step: r.step,
+    slot: Number.isInteger(r.slot) ? r.slot : null,
+    created_at: r.created_at,
+    seeded: !!r.seeded,
+  }
 }
 
 function memoryStore() {
   const rows = SEED_BOMMAIS.map(toRow)
   const subs = new Set()
+  const check = (step, slot, id) => {
+    if (!(step >= 1 && step <= 7)) throw placementError('locked_step', 'Only steps 1–7 are open to the community')
+    if (!(slot >= 0 && slot < spotsOnStep(step))) throw placementError('slot_taken', 'No such spot')
+    if (rows.some((r) => r.step === step && r.slot === slot && r.id !== id)) throw placementError('slot_taken', 'That spot is taken')
+  }
   return {
     kind: 'memory',
+    canMove: true,
     async list() {
       return [...rows]
     },
-    async add(config, step) {
-      if (!(step >= 1 && step <= 7)) throw placementError('locked_step', 'Only steps 1–7 are open to the community')
-      if (rows.filter((r) => r.step === step).length >= STEP_CAP) throw placementError('step_full', `Step ${step} is full`)
-      const row = toRow({ ...config, step, id: `local-${Date.now()}`, created_at: new Date().toISOString() })
+    async add(config, step, slot) {
+      check(step, slot)
+      const row = toRow({ ...config, step, slot, id: `local-${Date.now()}`, created_at: new Date().toISOString() })
       rows.push(row)
       subs.forEach((fn) => fn(row))
       return row
+    },
+    async move(id, step, slot) {
+      check(step, slot, id)
+      const i = rows.findIndex((r) => r.id === id)
+      if (i < 0) throw placementError('move_unavailable', 'Not found')
+      rows[i] = { ...rows[i], step, slot }
+      subs.forEach((fn) => fn(rows[i]))
+      return rows[i]
     },
     subscribe(fn) {
       subs.add(fn)
@@ -57,6 +81,12 @@ function memoryStore() {
 function supabaseStore() {
   const sb = createClient(URL, KEY, { auth: { persistSession: true, autoRefreshToken: true } })
   let session = null
+  // Until the slots migration runs, the table has no `slot` column: keep working without spots
+  // (the layout assigns them) and without moving.
+  let hasSlots = true
+  const columns = () => (hasSlots ? BASE_COLUMNS + ',slot' : BASE_COLUMNS)
+  const missingColumn = (error) => error?.code === '42703' || (/slot/.test(error?.message || '') && /column/.test(error?.message || ''))
+
   async function ensureSession() {
     if (session) return session
     const { data } = await sb.auth.getSession()
@@ -65,32 +95,45 @@ function supabaseStore() {
     if (error) throw error
     return (session = anon.session)
   }
-  return {
+  const store = {
     kind: 'supabase',
+    canMove: true,
     async list() {
-      const { data, error } = await sb.from('bommais').select(COLUMNS).order('created_at', { ascending: true }).limit(2000)
+      const query = () => sb.from('bommais').select(columns()).order('created_at', { ascending: true }).limit(2000)
+      let { data, error } = await query()
+      if (error && hasSlots && missingColumn(error)) {
+        hasSlots = false
+        store.canMove = false
+        ;({ data, error } = await query())
+      }
       if (error) throw error
       return data.map(toRow)
     },
-    async add(config, step) {
+    async add(config, step, slot) {
       const s = await ensureSession()
       const c = normalizeConfig(config)
-      const { data, error } = await sb
-        .from('bommais')
-        .insert({ ...c, name: c.name || 'A friend', step, user_id: s.user.id })
-        .select(COLUMNS)
-        .single()
+      const row = { ...c, name: c.name || 'A friend', step, user_id: s.user.id, ...(hasSlots ? { slot } : {}) }
+      const { data, error } = await sb.from('bommais').insert(row).select(columns()).single()
       if (error) throw toPlacementError(error)
+      return toRow(data)
+    },
+    async move(id, step, slot) {
+      if (!hasSlots) throw placementError('move_unavailable', 'Moving needs the slots migration')
+      await ensureSession()
+      const { data, error } = await sb.from('bommais').update({ step, slot }).eq('id', id).select(columns()).single()
+      if (error) throw error.code === 'PGRST116' ? placementError('move_unavailable', 'Not your Bommai') : toPlacementError(error)
       return toRow(data)
     },
     subscribe(fn) {
       const ch = sb
-        .channel('bommais-inserts')
+        .channel('bommais-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bommais' }, (p) => fn(toRow(p.new)))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bommais' }, (p) => fn(toRow(p.new)))
         .subscribe()
       return () => sb.removeChannel(ch)
     },
   }
+  return store
 }
 
 let store
@@ -111,6 +154,8 @@ export async function loadBommais() {
     return store.list()
   }
 }
-export const addBommai = (config, step) => store.add(config, step)
+export const addBommai = (config, step, slot) => store.add(config, step, slot)
+export const moveBommai = (id, step, slot) => store.move(id, step, slot)
 export const subscribeBommais = (fn) => store.subscribe(fn)
 export const storeKind = () => store.kind
+export const canMoveBommais = () => store.canMove

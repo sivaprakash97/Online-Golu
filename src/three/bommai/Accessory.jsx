@@ -4,7 +4,7 @@ const STEEL = { rough: 0.22, metal: 0.85 }
 const WOOD = '#b9733f'
 
 // Each accessory is drawn around its grip point. `mode` says how it is being carried:
-// hand | chest | head | back | ground (see the anchor logic in Bommai.jsx).
+// hand | clasp | chest | tuck | head | back | ground (see carryMode in Bommai.jsx).
 export default function Accessory({ id, mode, torso }) {
   switch (id) {
     case 'filter-coffee':
@@ -28,7 +28,13 @@ export default function Accessory({ id, mode, torso }) {
             </group>
           </group>
         )
-      return <RBox size={[0.03, 0.21, 0.29]} r={0.008} position={[0, -0.05, 0.04]} color="#b9bcc4" mat={{ rough: 0.35, metal: 0.4 }} />
+      // tucked under the arm: closed, standing on its long edge
+      return (
+        <group>
+          <RBox size={[0.032, 0.2, 0.28]} r={0.01} color="#b9bcc4" mat={{ rough: 0.35, metal: 0.4 }} />
+          <Disc r={0.022} position={[0.0165, 0.01, 0]} rotation={[0, Math.PI / 2, 0]} color="#f2a541" />
+        </group>
+      )
 
     case 'guitar':
       return (
@@ -51,10 +57,12 @@ export default function Accessory({ id, mode, torso }) {
             <RBox size={[0.12, 0.03, 0.01]} r={0.004} position={[0, 0.06, 0.03]} color="#e8b33c" />
           </group>
         )
+      // tucked under the arm, cover facing out
       return (
-        <group position={[0, -0.04, 0.05]} rotation={[0, Math.PI / 2, 0]}>
+        <group rotation={[0, Math.PI / 2, 0]}>
           <RBox size={[0.19, 0.24, 0.05]} r={0.012} color="#2f6f9c" />
-          <RBox size={[0.17, 0.22, 0.055]} r={0.006} position={[0.012, 0, 0]} color="#f5ecd6" />
+          <RBox size={[0.17, 0.22, 0.055]} r={0.006} position={[-0.012, 0, 0]} color="#f5ecd6" />
+          <RBox size={[0.1, 0.025, 0.01]} r={0.004} position={[0, 0.05, 0.026]} color="#e8b33c" />
         </group>
       )
 
@@ -79,7 +87,7 @@ export default function Accessory({ id, mode, torso }) {
 
     case 'controller':
       return (
-        <group position={[0, mode === 'chest' ? 0 : -0.01, 0.04]} rotation={mode === 'chest' ? [0.7, 0, 0] : [0.2, Math.PI / 2, 0]}>
+        <group position={[0, mode === 'chest' ? 0 : -0.01, 0.04]} rotation={mode === 'chest' || mode === 'clasp' ? [0.7, 0, 0] : [0.2, Math.PI / 2, 0]}>
           <RBox size={[0.2, 0.05, 0.1]} r={0.022} color="#3b3e4a" />
           <Ball r={0.042} position={[0.085, -0.008, -0.03]} color="#3b3e4a" />
           <Ball r={0.042} position={[-0.085, -0.008, -0.03]} color="#3b3e4a" />
@@ -93,7 +101,7 @@ export default function Accessory({ id, mode, torso }) {
 
     case 'cricket-bat':
       return (
-        <group position={[0, 0, 0.04]} rotation={[0.25, 0, 0.1]}>
+        <group position={[0, 0, 0.04]} rotation={mode === 'clasp' ? [0.12, 0, 0] : [0.25, 0, 0.1]}>
           <Cyl rt={0.02} h={0.14} position={[0, 0.02, 0]} color="#2f6f9c" />
           <RBox size={[0.08, 0.36, 0.035]} r={0.012} position={[0, -0.22, 0]} color="#e6c98f" />
           <RBox size={[0.082, 0.04, 0.037]} r={0.01} position={[0, -0.16, 0]} color="#c8323a" />
@@ -115,8 +123,8 @@ export default function Accessory({ id, mode, torso }) {
         <group>
           <RBox size={[tw * 0.86, th * 1.05, 0.14]} r={0.045} position={[0, ty, -td / 2 - 0.065]} color="#d9643a" />
           <RBox size={[tw * 0.6, th * 0.42, 0.05]} r={0.02} position={[0, ty - th * 0.2, -td / 2 - 0.15]} color="#b84f2c" />
-          <RBox size={[0.04, th * 0.9, 0.02]} r={0.008} position={[tw * 0.27, ty, td / 2 + 0.006]} color="#8c3a20" />
-          <RBox size={[0.04, th * 0.9, 0.02]} r={0.008} position={[-tw * 0.27, ty, td / 2 + 0.006]} color="#8c3a20" />
+          <RBox size={[0.04, th * 0.6, 0.02]} r={0.008} position={[tw * 0.27, ty + th * 0.2, td / 2 + 0.006]} color="#8c3a20" />
+          <RBox size={[0.04, th * 0.6, 0.02]} r={0.008} position={[-tw * 0.27, ty + th * 0.2, td / 2 + 0.006]} color="#8c3a20" />
         </group>
       )
     }

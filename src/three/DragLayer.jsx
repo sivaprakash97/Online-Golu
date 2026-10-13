@@ -1,0 +1,294 @@
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import Bommai from './bommai/Bommai.jsx'
+import { Torus, Disc } from './prims.jsx'
+import { GOLU, slotPos, freeSlots, pickStep } from './golu/layout.js'
+import { LOOKUP, OPEN_STEPS } from '../data/options.js'
+
+// Drag and drop for Bommais, picked up by the head.
+// press(event, item) starts a gesture on a doll; past a few pixels it becomes a drag. The doll then
+// hangs from the pointer by the top of its head and swings like a pendulum as it is carried.
+// Free spots glow; dropping on one lowers it onto the step, dropping on the traditional steps (8, 9)
+// or anywhere else floats it back to where it came from.
+//   item: { key, kind: 'draft' | 'placed', id?, config, origin: [x, y, z] (base), scale }
+
+const HEAD_TOP = 1.0 // top of the head above the pedestal base, for an unscaled Bommai
+const HANG = 0.45 // how far the pedestal dangles above the step while carried
+const DRAG_PX = 6
+const G = 9.8
+const ARM = 0.75 // pendulum length
+const MAX_SWING = 0.8 // radians; a flick swings it about 45° at most
+const MAX_ACC = 25
+const v3 = (a) => new THREE.Vector3(...a)
+
+const baseFor = (config, step, slot) => {
+  const p = slotPos(step, slot)
+  if (LOOKUP.accessory[config.accessory]?.hold === 'ground') p.x -= 0.17
+  return [p.x, p.y, p.z]
+}
+
+// Glowing rings on every free spot; the one under the pointer swells.
+function SlotMarker({ at, active }) {
+  const ref = useRef()
+  useFrame(({ clock }) => {
+    if (!ref.current) return
+    const s = (active ? 1.35 : 1) + Math.sin(clock.elapsedTime * 4 + at[0]) * 0.05
+    ref.current.scale.set(s, s, s)
+  })
+  return (
+    <group ref={ref} position={[at[0], at[1] + 0.03, at[2]]}>
+      <Torus r={0.26} t={0.022} rs={6} ts={32} rotation={[Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: active ? 2 : 0.9 }} shadow={false} />
+      {active && <Disc r={0.25} s={32} rotation={[-Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: 0.8, opacity: 0.35 }} />}
+    </group>
+  )
+}
+
+function ReservedGlow({ step }) {
+  const ref = useRef()
+  useFrame(({ clock }) => ref.current && (ref.current.material.opacity = 0.35 + Math.sin(clock.elapsedTime * 6) * 0.12))
+  return (
+    <mesh ref={ref} position={[0, GOLU.top(step) + 0.035, GOLU.front(step) - GOLU.D / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[GOLU.width(step) - 0.3, GOLU.D - 0.05]} />
+      <meshBasicMaterial color="#5fa7a8" transparent opacity={0.4} depthWrite={false} toneMapped={false} />
+    </mesh>
+  )
+}
+
+const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, onReject, onDragChange, onClickItem }, apiRef) {
+  const { camera, gl, controls } = useThree()
+  const [drag, setDrag] = useState(null) // the item being carried
+  const [hover, setHover] = useState(null) // { step, slot } | { step, reserved } | { step, full }
+  const grip = useRef()
+  const swing = useRef()
+  const scaler = useRef()
+  const sim = useRef(null)
+  const pointer = useRef({ x: 0, y: 0 })
+  const ray = useMemo(() => new THREE.Raycaster(), [])
+  const latest = useRef({})
+  latest.current = { bommais, onDrop, onReject, onDragChange, onClickItem, controls, hover }
+
+  const finish = () => {
+    sim.current = null
+    setDrag(null)
+    setHover(null)
+    if (latest.current.controls) latest.current.controls.enabled = true
+    document.body.style.cursor = ''
+    latest.current.onDragChange?.(null)
+  }
+
+  const begin = (item) => {
+    const top = HEAD_TOP * item.scale
+    const start = v3(item.origin).add(new THREE.Vector3(0, top, 0))
+    sim.current = {
+      item,
+      phase: 'carry',
+      pos: start.clone(),
+      target: start.clone().add(new THREE.Vector3(0, 0.35, 0)),
+      vel: new THREE.Vector3(),
+      acc: new THREE.Vector3(),
+      ax: 0, // swing about x (forward/back)
+      az: 0, // swing about z (side to side)
+      wx: 0,
+      wz: 0,
+      yaw: 0,
+      scale: item.scale,
+      squash: 0,
+      t: 0,
+    }
+    if (latest.current.controls) latest.current.controls.enabled = false
+    document.body.style.cursor = 'grabbing'
+    setDrag(item)
+    latest.current.onDragChange?.(item.key)
+  }
+
+  const release = () => {
+    const s = sim.current
+    if (!s || s.phase !== 'carry') return
+    const h = latest.current.hover
+    if (h && h.slot !== undefined) {
+      s.phase = 'drop'
+      s.drop = { step: h.step, slot: h.slot, base: baseFor(s.item.config, h.step, h.slot) }
+      s.target = v3(s.drop.base).add(new THREE.Vector3(0, HEAD_TOP, 0))
+    } else {
+      if (h?.reserved) latest.current.onReject?.('reserved', h.step)
+      else if (h?.full) latest.current.onReject?.('full', h.step)
+      goBack(s)
+    }
+    setHover(null)
+  }
+
+  const goBack = (s) => {
+    s.phase = 'return'
+    s.target = v3(s.item.origin).add(new THREE.Vector3(0, HEAD_TOP * s.item.scale + 0.4, 0))
+  }
+
+  useImperativeHandle(apiRef, () => ({
+    press(e, item) {
+      if (sim.current) return
+      e.stopPropagation()
+      const sx = e.clientX
+      const sy = e.clientY
+      pointer.current = { x: sx, y: sy }
+      // hold the camera still from the first press, so grabbing a doll never nudges the view,
+      // and tell the camera rig someone is interacting (stops the idle drift)
+      if (latest.current.controls) {
+        latest.current.controls.enabled = false
+        latest.current.controls.dispatchEvent?.({ type: 'controlstart' })
+      }
+      let dragging = false
+      const move = (ev) => {
+        pointer.current = { x: ev.clientX, y: ev.clientY }
+        if (!dragging && Math.hypot(ev.clientX - sx, ev.clientY - sy) > DRAG_PX) {
+          dragging = true
+          begin(item)
+        }
+      }
+      const up = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        window.removeEventListener('pointercancel', up)
+        if (dragging) release()
+        else {
+          if (latest.current.controls) latest.current.controls.enabled = true
+          latest.current.onClickItem?.(item)
+        }
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', up)
+    },
+  }))
+
+  // never leave the camera locked if this unmounts mid-drag
+  useEffect(() => () => latest.current.controls && (latest.current.controls.enabled = true), [])
+
+  const ndc = new THREE.Vector2()
+  const tmp = new THREE.Vector3()
+  const camDir = new THREE.Vector3()
+
+  useFrame((_, rawDt) => {
+    const s = sim.current
+    if (!s || !grip.current) return
+    const dt = Math.min(rawDt, 1 / 30)
+
+    if (s.phase === 'carry') {
+      const rect = gl.domElement.getBoundingClientRect()
+      ndc.set(((pointer.current.x - rect.left) / rect.width) * 2 - 1, -((pointer.current.y - rect.top) / rect.height) * 2 + 1)
+      ray.setFromCamera(ndc, camera)
+      const hit = pickStep(ray.ray)
+      let next = null
+      if (hit) {
+        s.target.copy(hit.point).add(tmp.set(0, HEAD_TOP + HANG, 0))
+        if (hit.step > OPEN_STEPS.length) next = { step: hit.step, reserved: true }
+        else {
+          const free = freeSlots(latest.current.bommais, hit.step, s.item.id)
+          if (!free.length) next = { step: hit.step, full: true }
+          else {
+            const slot = free.reduce((a, b) => (Math.abs(slotPos(hit.step, b).x - hit.point.x) < Math.abs(slotPos(hit.step, a).x - hit.point.x) ? b : a))
+            next = { step: hit.step, slot }
+            // a gentle pull toward the spot it will land in
+            s.target.x += (slotPos(hit.step, slot).x - s.target.x) * 0.3
+          }
+        }
+      } else {
+        // off the steps: keep the doll at the same depth, under the pointer
+        camera.getWorldDirection(camDir)
+        const t = s.pos.clone().sub(ray.ray.origin).dot(camDir) / ray.ray.direction.dot(camDir)
+        if (t > 0) s.target.copy(ray.ray.origin).addScaledVector(ray.ray.direction, t)
+      }
+      s.target.x = THREE.MathUtils.clamp(s.target.x, -7, 7)
+      s.target.y = THREE.MathUtils.clamp(s.target.y, 0.6, 9)
+      s.target.z = THREE.MathUtils.clamp(s.target.z, -9, 4)
+      const h = latest.current.hover
+      if (h?.step !== next?.step || h?.slot !== next?.slot || !!h?.reserved !== !!next?.reserved) setHover(next)
+    }
+
+    // follow the target: snappy while carried, eased when dropping or going back
+    const follow = s.phase === 'carry' ? 16 : s.phase === 'drop' ? 11 : 7
+    const prev = s.pos.clone()
+    s.pos.lerp(s.target, 1 - Math.exp(-dt * follow))
+    const vel = s.pos.clone().sub(prev).divideScalar(Math.max(dt, 1e-4))
+    s.acc.lerp(vel.clone().sub(s.vel).divideScalar(Math.max(dt, 1e-4)), 0.5)
+    s.vel.copy(vel)
+
+    // pendulum swing, driven by how the grip accelerates; heavily damped once standing
+    const standing = s.phase === 'settle' || s.phase === 'wait'
+    const damp = standing ? 14 : 2.4
+    const steps = 2
+    for (let i = 0; i < steps; i++) {
+      const h = dt / steps
+      const ax = THREE.MathUtils.clamp(s.acc.x, -MAX_ACC, MAX_ACC)
+      const az = THREE.MathUtils.clamp(s.acc.z, -MAX_ACC, MAX_ACC)
+      const pull = standing ? 6 : 1
+      s.wz += (-(G / ARM) * pull * Math.sin(s.az) - damp * s.wz - (standing ? 0 : (ax / ARM) * Math.cos(s.az))) * h
+      s.wx += (-(G / ARM) * pull * Math.sin(s.ax) - damp * s.wx + (standing ? 0 : (az / ARM) * Math.cos(s.ax))) * h
+      s.az = THREE.MathUtils.clamp(s.az + s.wz * h, -MAX_SWING, MAX_SWING)
+      s.ax = THREE.MathUtils.clamp(s.ax + s.wx * h, -MAX_SWING, MAX_SWING)
+      if (Math.abs(s.az) === MAX_SWING) s.wz *= -0.3 // soft bounce off the limit
+      if (Math.abs(s.ax) === MAX_SWING) s.wx *= -0.3
+    }
+    s.yaw += (THREE.MathUtils.clamp(-s.vel.x * 0.06, -0.35, 0.35) - s.yaw) * (1 - Math.exp(-dt * 6))
+    s.scale += ((s.phase === 'return' ? s.item.scale : 1) - s.scale) * (1 - Math.exp(-dt * 8))
+
+    const near = s.pos.distanceTo(s.target) < 0.02
+    if (s.phase === 'drop' && near) {
+      s.phase = 'settle'
+      s.t = 0
+      s.squash = 1
+    } else if (s.phase === 'settle') {
+      s.t += dt
+      if (s.t > 0.35) {
+        s.phase = 'wait'
+        const { item, drop } = s
+        Promise.resolve(latest.current.onDrop?.(item, drop.step, drop.slot))
+          .then((ok) => {
+            if (sim.current !== s) return
+            if (ok) finish()
+            else goBack(s)
+          })
+          .catch(() => sim.current === s && goBack(s))
+      }
+    } else if (s.phase === 'return' && near) {
+      if (!s.lowering) {
+        s.lowering = true
+        s.target = v3(s.item.origin).add(new THREE.Vector3(0, HEAD_TOP * s.item.scale, 0))
+      } else finish()
+    }
+
+    s.squash *= Math.exp(-dt * 7)
+    const sq = Math.sin(s.squash * Math.PI * 3) * s.squash * 0.12
+    grip.current.position.copy(s.pos)
+    swing.current.rotation.set(s.ax, s.yaw, s.az)
+    scaler.current.scale.set(s.scale * (1 + sq * 0.6), s.scale * (1 - sq), s.scale * (1 + sq * 0.6))
+  })
+
+  const markers = useMemo(() => {
+    if (!showMarkers && !drag) return []
+    const out = []
+    for (const k of OPEN_STEPS) for (const slot of freeSlots(bommais, k, drag?.id)) out.push({ k, slot, at: baseFor({}, k, slot) })
+    return out
+  }, [showMarkers, drag, bommais])
+
+  return (
+    <>
+      {markers.map((m) => (
+        <SlotMarker key={`${m.k}-${m.slot}`} at={m.at} active={hover?.step === m.k && hover?.slot === m.slot} />
+      ))}
+      {hover?.reserved && <ReservedGlow step={hover.step} />}
+      {drag && (
+        <group ref={grip}>
+          <group ref={swing}>
+            <group ref={scaler}>
+              <group position={[0, -HEAD_TOP, 0]}>
+                <Bommai config={drag.config} idle={false} />
+              </group>
+            </group>
+          </group>
+        </group>
+      )}
+    </>
+  )
+})
+
+export default DragLayer
