@@ -213,7 +213,10 @@ export default function Creator({ initial, onBack, onDone, count }) {
   }
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
   const gridRef = useRef()
-  useEffect(() => gridRef.current?.scrollTo({ top: 0 }), [cat])
+  // braces matter: newer Chrome returns a Promise from scrollTo, and React would call it as the cleanup
+  useEffect(() => {
+    gridRef.current?.scrollTo({ top: 0 })
+  }, [cat])
 
   return (
     <div className="creator">
