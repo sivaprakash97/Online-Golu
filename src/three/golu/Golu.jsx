@@ -5,7 +5,7 @@ import { GOLU } from './layout.js'
 import { RBox, Ball, Gem, Cyl, Torus, GOLD, material } from '../prims.jsx'
 import { PIECES, Kuthuvilakku } from '../traditional/Pieces.jsx'
 
-const { W, H, D } = GOLU
+const { H, D } = GOLU // widths taper: GOLU.width(k)
 const WOOD = '#7b4127'
 const CLOTH = '#f5ead3'
 const RISER = ['#8e1f2e', '#a3283a'] // alternating kumkum/maroon silk
@@ -28,6 +28,7 @@ export const TRADITIONAL_SLOTS = [
 ]
 
 function Step({ k }) {
+  const W = GOLU.width(k)
   const locked = k >= 8
   const front = GOLU.front(k)
   const depth = front - GOLU.backZ
@@ -48,15 +49,15 @@ function Step({ k }) {
       <RBox size={[0.18, H + 0.04, D + 0.02]} r={0.03} position={[-W / 2 + 0.02, y0 + H / 2 + 0.02, front - D / 2]} color="#5e2f1b" receive />
       <Ball r={0.05} position={[W / 2 - 0.02, y0 + H + 0.06, front - 0.05]} color={ZARI} mat={GOLD} />
       <Ball r={0.05} position={[-W / 2 + 0.02, y0 + H + 0.06, front - 0.05]} color={ZARI} mat={GOLD} />
-      <RiserMotifs k={k} y0={y0} front={front} locked={locked} />
+      <RiserMotifs k={k} y0={y0} front={front} locked={locked} W={W} />
     </group>
   )
 }
 
 // little woven motifs along each riser (instanced so 9 steps stay cheap)
-function RiserMotifs({ k, y0, front, locked }) {
+function RiserMotifs({ y0, front, locked, W }) {
   const ref = useRef()
-  const count = 22
+  const count = Math.round(W * 2.1)
   const geo = useMemo(() => new THREE.OctahedronGeometry(0.035, 0), [])
   const mat = material(locked ? '#e8c46a' : '#f0c35a', { rough: 0.35, metal: 0.5 })
   const setRef = (m) => {
@@ -74,7 +75,7 @@ function RiserMotifs({ k, y0, front, locked }) {
   return <instancedMesh ref={setRef} args={[geo, mat, count]} />
 }
 
-function TierGlow({ y, front, locked, selected }) {
+function TierGlow({ y, front, locked, selected, W }) {
   const ref = useRef()
   useFrame(({ clock }) => {
     if (ref.current) ref.current.material.opacity = (selected ? 0.6 : 0.38) + Math.sin(clock.elapsedTime * 5) * 0.12
@@ -96,6 +97,7 @@ function TierGlow({ y, front, locked, selected }) {
 }
 
 function TierHitZone({ k, state, onOver, onOut, onPick }) {
+  const W = GOLU.width(k)
   const front = GOLU.front(k)
   const y = GOLU.top(k)
   const locked = k >= 8
@@ -110,7 +112,7 @@ function TierHitZone({ k, state, onOver, onOut, onPick }) {
         <boxGeometry args={[W, 1.1, D]} />
         <meshBasicMaterial visible={false} />
       </mesh>
-      {state && <TierGlow y={y} front={front} locked={locked || state === 'full'} selected={state === 'selected'} />}
+      {state && <TierGlow y={y} front={front} locked={locked || state === 'full'} selected={state === 'selected'} W={W} />}
     </group>
   )
 }
@@ -292,10 +294,10 @@ function Room() {
         )),
       )}
       {/* banana plants flank the Golu */}
-      <group position={[-6.3, 0, 0.6]}>
+      <group position={[-7.1, 0, 0.6]}>
         <BananaPlant />
       </group>
-      <group position={[6.3, 0, 0.6]}>
+      <group position={[7.1, 0, 0.6]}>
         <BananaPlant flip={-1} />
       </group>
       {/* floor lamps */}

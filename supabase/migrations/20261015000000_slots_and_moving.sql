@@ -1,20 +1,48 @@
 -- Fixed spots on each step, and letting visitors move their own Bommai.
--- Each community step has 7 spots (slot 0..6, left to right). A spot holds one Bommai, which also
--- caps a step at 7. src/three/golu/layout.js repeats the spot count and the centre-out order.
+-- The third row from the top (step 7) holds 4 Bommais and each row further down holds 2 more:
+-- step k has 18 - 2k spots (step 1: 16 … step 7: 4), 70 in all. A spot holds one Bommai.
+-- src/data/options.js (spotsOnStep, centreOut) repeats the rule and the fill order.
 
-alter table public.bommais add column slot smallint check (slot between 0 and 6);
+alter table public.bommais add column slot smallint;
+alter table public.bommais add constraint bommais_slot_on_step check (slot >= 0 and slot < 18 - 2 * step);
 
--- Give existing Bommais spots, centre-out (3, 2, 4, 1, 5, 0, 6) in the order they joined.
+-- Give existing Bommais spots from the middle outward (n/2, n/2 - 1, n/2 + 1, …), in join order.
 with ranked as (
-  select id, row_number() over (partition by step order by created_at, id) - 1 as n
+  select id, step, row_number() over (partition by step order by created_at, id) - 1 as r
   from public.bommais
 )
 update public.bommais b
-set slot = (array[3, 2, 4, 1, 5, 0, 6])[r.n + 1]
+set slot = case when r.r % 2 = 0 then (18 - 2 * r.step) / 2 + r.r / 2
+                else (18 - 2 * r.step) / 2 - (r.r + 1) / 2 end
 from ranked r
-where r.id = b.id and r.n < 7;
+where r.id = b.id and r.r < 18 - 2 * r.step;
 
 create unique index bommais_step_slot_key on public.bommais (step, slot) where slot is not null;
+
+-- The per-step limit now follows the spots (replaces the flat 7 from the placement rules).
+create or replace function public.bommais_placement_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- one insert at a time, so two visitors can't both take the last spot on a step
+  perform pg_advisory_xact_lock(hashtext('public.bommais'));
+
+  if new.user_id is not null and exists (
+    select 1 from public.bommais where user_id = new.user_id
+  ) then
+    raise exception 'This visitor already has a Bommai on the Golu';
+  end if;
+
+  if (select count(*) from public.bommais where step = new.step) >= 18 - 2 * new.step then
+    raise exception 'Step % is full', new.step;
+  end if;
+
+  return new;
+end;
+$$;
 
 -- New Bommais must say which spot they take.
 drop policy "Visitors add their own Bommai to an open step" on public.bommais;

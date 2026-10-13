@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SEED_BOMMAIS } from '../data/seed.js'
-import { normalizeConfig } from '../data/options.js'
+import { normalizeConfig, spotsOnStep } from '../data/options.js'
 
 // One tiny interface over two backends:
 //   - Supabase (shared, realtime) when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set
@@ -24,6 +24,7 @@ function placementError(code, message) {
 function toPlacementError(e) {
   const msg = e?.message || ''
   if (e?.code === '23505') return placementError('slot_taken', msg) // unique (step, slot)
+  if (msg.includes('bommais_slot_on_step')) return placementError('slot_taken', msg) // no such spot on that step
   if (msg.includes('already has a Bommai')) return placementError('already_placed', msg)
   if (msg.includes('is full')) return placementError('step_full', msg)
   if (e?.code === '23514' || e?.code === '42501') return placementError('locked_step', msg) // check constraint / RLS
@@ -46,7 +47,7 @@ function memoryStore() {
   const subs = new Set()
   const check = (step, slot, id) => {
     if (!(step >= 1 && step <= 7)) throw placementError('locked_step', 'Only steps 1–7 are open to the community')
-    if (!(slot >= 0 && slot <= 6)) throw placementError('slot_taken', 'No such spot')
+    if (!(slot >= 0 && slot < spotsOnStep(step))) throw placementError('slot_taken', 'No such spot')
     if (rows.some((r) => r.step === step && r.slot === slot && r.id !== id)) throw placementError('slot_taken', 'That spot is taken')
   }
   return {

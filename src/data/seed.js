@@ -1,3 +1,5 @@
+import { centreOut, spotsOnStep } from './options.js'
+
 // Fictional demo Bommais so the Golu never loads empty. The same rows are inserted
 // into Supabase by supabase/seed.sql (generated from this file: `npm run seed:sql`).
 export const SEED_BOMMAIS = [
@@ -24,7 +26,7 @@ export const SEED_BOMMAIS = [
   ...b,
   id: `seed-${i + 1}`,
   // spots fill centre-out per step, in join order (same order as the slots migration)
-  slot: [3, 2, 4, 1, 5, 0, 6][all.slice(0, i).filter((o) => o.step === b.step).length],
+  slot: centreOut(spotsOnStep(b.step))[all.slice(0, i).filter((o) => o.step === b.step).length],
   // spread fictional join times over the past few days
   created_at: new Date(Date.UTC(2026, 9, 10, 9) + i * 3.7 * 3600e3).toISOString(),
   seeded: true,

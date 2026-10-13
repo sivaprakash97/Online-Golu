@@ -1,30 +1,31 @@
-import { LOOKUP, STEP_CAP } from '../../data/options.js'
+import { LOOKUP, spotsOnStep, centreOut } from '../../data/options.js'
 import { MathUtils } from 'three'
 
 // Golu dimensions (world units; a Bommai is ~1 unit tall).
 export const GOLU = {
   steps: 9,
-  W: 10.4, // width of every step
+  W: 13, // width of the bottom step; each step up is TAPER narrower (step 9: 9.8)
+  TAPER: 0.4,
   H: 0.62, // rise
   D: 0.95, // run
   Z0: 0, // front edge of step 1
 }
+GOLU.width = (k) => GOLU.W - (k - 1) * GOLU.TAPER
 GOLU.top = (k) => k * GOLU.H
 GOLU.front = (k) => GOLU.Z0 - (k - 1) * GOLU.D
 GOLU.standZ = (k) => GOLU.front(k) - GOLU.D * 0.52
 GOLU.backZ = GOLU.front(GOLU.steps) - GOLU.D
 GOLU.center = (k) => [0, GOLU.top(k), GOLU.standZ(k)]
 
-// Each community step has STEP_CAP fixed spots, evenly spaced. Rows that predate spots get one
-// assigned centre-out in join order (the same order the slots migration uses).
-export const SLOTS = STEP_CAP
-export const SLOT_ORDER = [3, 2, 4, 1, 5, 0, 6]
-const USABLE = GOLU.W - 0.9
-const SLOT_DX = USABLE / SLOTS
+// Each community step has spotsOnStep(k) fixed spots (more on the lower, wider steps). Spots are
+// evenly spaced, but never further apart than MAX_GAP, so the few spots on the upper steps sit
+// together in the middle. Rows that predate spots get one centre-out in join order (the same order
+// the slots migration uses).
+const MAX_GAP = 1.35
 const GROUND_EXTRA = 0.34 // a pet or plant stands to the doll's left
 
-// alternate steps are nudged half a spot left/right so dolls don't stack into neat columns
-export const slotX = (step, slot) => (slot - (SLOTS - 1) / 2 + (step % 2 ? 0.25 : -0.25)) * SLOT_DX
+const gap = (step) => Math.min((GOLU.width(step) - 0.9) / spotsOnStep(step), MAX_GAP)
+export const slotX = (step, slot) => (slot - (spotsOnStep(step) - 1) / 2) * gap(step)
 export const slotPos = (step, slot) => ({ step, slot, x: slotX(step, slot), y: GOLU.top(step), z: GOLU.standZ(step) + (slot % 2 ? 0.05 : -0.02) })
 
 // id -> slot for every Bommai, filling in spots for rows without one (or with a clashing one).
@@ -35,13 +36,13 @@ export function resolveSlots(bommais) {
   const sorted = [...bommais].sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
   const pending = []
   for (const b of sorted) {
-    if (Number.isInteger(b.slot) && b.slot >= 0 && b.slot < SLOTS && !used(b.step).has(b.slot)) {
+    if (Number.isInteger(b.slot) && b.slot >= 0 && b.slot < spotsOnStep(b.step) && !used(b.step).has(b.slot)) {
       used(b.step).add(b.slot)
       out.set(b.id, b.slot)
     } else pending.push(b)
   }
   for (const b of pending) {
-    const free = SLOT_ORDER.find((s) => !used(b.step).has(s))
+    const free = centreOut(spotsOnStep(b.step)).find((s) => !used(b.step).has(s))
     if (free === undefined) continue // more rows than spots: not drawn
     used(b.step).add(free)
     out.set(b.id, free)
@@ -68,7 +69,7 @@ export function computeLayout(bommais) {
 export function freeSlots(bommais, step, ignoreId) {
   const slots = resolveSlots(bommais)
   const taken = new Set(bommais.filter((b) => b.step === step && b.id !== ignoreId).map((b) => slots.get(b.id)))
-  return Array.from({ length: SLOTS }, (_, i) => i).filter((i) => !taken.has(i))
+  return Array.from({ length: spotsOnStep(step) }, (_, i) => i).filter((i) => !taken.has(i))
 }
 
 // Which step the pointer is over: { step, point } or null. Counts a step's top, its front (riser),
@@ -76,7 +77,7 @@ export function freeSlots(bommais, step, ignoreId) {
 // "the top steps"). `point` is where to hang the doll: on the step's top, under the pointer.
 export function pickStep(ray) {
   const { origin: o, direction: d } = ray
-  const half = GOLU.W / 2 - 0.1
+  const half = (k) => GOLU.width(k) / 2 - 0.1
   let best = null
   const consider = (t, step) => {
     if (t > 0 && (!best || t < best.t)) best = { t, step }
@@ -88,13 +89,13 @@ export function pickStep(ray) {
       const t = (top - o.y) / d.y
       const x = o.x + d.x * t
       const z = o.z + d.z * t
-      if (Math.abs(x) <= half && z <= front + 0.05 && z >= front - GOLU.D - 0.05) consider(t, k)
+      if (Math.abs(x) <= half(k) && z <= front + 0.05 && z >= front - GOLU.D - 0.05) consider(t, k)
     }
     if (Math.abs(d.z) > 1e-6) {
       const t = (front - o.z) / d.z
       const x = o.x + d.x * t
       const y = o.y + d.y * t
-      if (Math.abs(x) <= half && y <= top && y >= GOLU.top(k - 1)) consider(t, k)
+      if (Math.abs(x) <= half(k) && y <= top && y >= GOLU.top(k - 1)) consider(t, k)
     }
   }
   // above the top step, in front of the backdrop
@@ -102,7 +103,7 @@ export function pickStep(ray) {
     const t = (GOLU.backZ + 0.3 - o.z) / d.z
     const x = o.x + d.x * t
     const y = o.y + d.y * t
-    if (Math.abs(x) <= half && y >= GOLU.top(GOLU.steps) && y <= GOLU.top(GOLU.steps) + 2.4) consider(t, GOLU.steps)
+    if (Math.abs(x) <= half(GOLU.steps) && y >= GOLU.top(GOLU.steps) && y <= GOLU.top(GOLU.steps) + 2.4) consider(t, GOLU.steps)
   }
   if (!best) return null
   const p = o.clone().addScaledVector(d, best.t)

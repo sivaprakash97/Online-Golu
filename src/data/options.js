@@ -193,6 +193,9 @@ export function normalizeConfig(c = {}) {
 
 export const OPEN_STEPS = [1, 2, 3, 4, 5, 6, 7]
 export const LOCKED_STEPS = [8, 9]
-// Each community step holds at most this many Bommais (7 steps × 7 = 49 in all, demo Bommais included).
-// supabase/migrations/20261014000000_placement_rules.sql repeats this number.
-export const STEP_CAP = 7
+// How many Bommais each community step holds: the third row from the top (step 7) holds 4, and each
+// row further down holds 2 more (step 6: 6, step 5: 8 … step 1: 16), 70 in all. Steps 8 and 9 hold
+// the traditional pieces. supabase/migrations/20261015000000_slots_and_moving.sql repeats the rule.
+export const spotsOnStep = (step) => (step >= 1 && step <= 7 ? 18 - 2 * step : 0)
+// The order spots fill when none is chosen: from the middle outward (n/2, n/2 - 1, n/2 + 1, …).
+export const centreOut = (n) => Array.from({ length: n }, (_, r) => (r % 2 ? n / 2 - (r + 1) / 2 : n / 2 + r / 2))

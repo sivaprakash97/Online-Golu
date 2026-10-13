@@ -49,7 +49,7 @@ function ReservedGlow({ step }) {
   useFrame(({ clock }) => ref.current && (ref.current.material.opacity = 0.35 + Math.sin(clock.elapsedTime * 6) * 0.12))
   return (
     <mesh ref={ref} position={[0, GOLU.top(step) + 0.035, GOLU.front(step) - GOLU.D / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[GOLU.W - 0.3, GOLU.D - 0.05]} />
+      <planeGeometry args={[GOLU.width(step) - 0.3, GOLU.D - 0.05]} />
       <meshBasicMaterial color="#5fa7a8" transparent opacity={0.4} depthWrite={false} toneMapped={false} />
     </mesh>
   )

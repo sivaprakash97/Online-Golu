@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
-import { DEFAULT_CONFIG, OPEN_STEPS, STEP_CAP } from './data/options.js'
+import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep } from './data/options.js'
 import { addBommai, moveBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
@@ -105,7 +105,7 @@ export default function App() {
     bommais.forEach((b) => (m[b.step] = (m[b.step] || 0) + 1))
     return m
   }, [bommais])
-  const fullSteps = useMemo(() => new Set(OPEN_STEPS.filter((k) => (stepCounts[k] || 0) >= STEP_CAP)), [stepCounts])
+  const fullSteps = useMemo(() => new Set(OPEN_STEPS.filter((k) => (stepCounts[k] || 0) >= spotsOnStep(k))), [stepCounts])
   const goluFull = fullSteps.size === OPEN_STEPS.length
   // one Bommai per visitor
   const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))

@@ -14,7 +14,7 @@ const DRAFT_SCALE = 1.25
 
 function shotFor(name, aspect, focus) {
   // pull back on narrow screens so the whole Golu still fits
-  const k = Math.max(1, 1.75 / aspect)
+  const k = Math.max(1.1, 1.95 / aspect) // the bottom step is 13 wide
   switch (name) {
     case 'place':
       return { pos: [-0.6, 4.3 * k, 11.4 * k], target: [0, 2.2, -2.4] }
@@ -29,7 +29,7 @@ function shotFor(name, aspect, focus) {
 }
 
 // The camera's target can't leave this box around the Golu, so panning never loses the scene.
-const BOUNDS = new THREE.Box3(new THREE.Vector3(-4.2, 1.7, -7), new THREE.Vector3(4.2, 5, 1.2))
+const BOUNDS = new THREE.Box3(new THREE.Vector3(-5.2, 1.7, -7), new THREE.Vector3(5.2, 5, 1.2))
 const MIN_DIST = 3
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
