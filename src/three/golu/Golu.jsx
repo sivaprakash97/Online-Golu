@@ -257,12 +257,12 @@ function Room() {
   return (
     <group>
       {/* diorama slab (red-oxide floor) */}
-      <RBox size={[17, 0.5, 13.5]} r={0.12} position={[0, -0.25, backZ + 6.75 - 0.2]} color="#a4472f" receive mat={{ rough: 0.5 }} />
-      <RBox size={[17.1, 0.12, 13.6]} r={0.05} position={[0, -0.47, backZ + 6.75 - 0.2]} color="#5e2f1b" receive />
+      <RBox size={[19.4, 0.5, 13.5]} r={0.12} position={[0, -0.25, backZ + 6.75 - 0.2]} color="#a4472f" receive mat={{ rough: 0.5 }} />
+      <RBox size={[19.5, 0.12, 13.6]} r={0.05} position={[0, -0.47, backZ + 6.75 - 0.2]} color="#5e2f1b" receive />
       {/* back wall */}
-      <RBox size={[17, wallH, 0.4]} r={0.1} position={[0, wallH / 2, backZ - 0.2]} color="#f0d2a4" receive mat={{ rough: 0.9 }} />
-      <RBox size={[17.02, 1.1, 0.44]} r={0.06} position={[0, 0.55, backZ - 0.2]} color="#c97a3e" receive />
-      <RBox size={[17.04, 0.08, 0.46]} r={0.03} position={[0, 1.12, backZ - 0.2]} color={ZARI} mat={GOLD} />
+      <RBox size={[19.4, wallH, 0.4]} r={0.1} position={[0, wallH / 2, backZ - 0.2]} color="#f0d2a4" receive mat={{ rough: 0.9 }} />
+      <RBox size={[19.42, 1.1, 0.44]} r={0.06} position={[0, 0.55, backZ - 0.2]} color="#c97a3e" receive />
+      <RBox size={[19.44, 0.08, 0.46]} r={0.03} position={[0, 1.12, backZ - 0.2]} color={ZARI} mat={GOLD} />
       {/* painted arch behind the Golu */}
       <mesh position={[0, 4.3, backZ + 0.01]} receiveShadow>
         <circleGeometry args={[4.9, 48, 0, Math.PI]} />
@@ -273,7 +273,7 @@ function Room() {
         <meshStandardMaterial color="#b8452f" roughness={0.8} />
       </mesh>
       {/* pillars */}
-      {[-7.2, 7.2].map((x) => (
+      {[-7.8, 7.8].map((x) => (
         <group key={x} position={[x, 0, backZ + 0.45]}>
           <RBox size={[0.7, 0.3, 0.7]} r={0.05} position={[0, 0.15, 0]} color="#5e2f1b" />
           <Cyl rt={0.22} rb={0.25} h={7.3} s={8} position={[0, 3.95, 0]} color="#7b4127" mat={{ flat: true, rough: 0.6 }} />
@@ -283,21 +283,21 @@ function Room() {
           <RBox size={[0.8, 0.3, 0.8]} r={0.05} position={[0, 7.7, 0]} color="#5e2f1b" />
         </group>
       ))}
-      <RBox size={[15.2, 0.32, 0.5]} r={0.06} position={[0, 7.9, backZ + 0.45]} color="#5e2f1b" />
-      <Toran y={7.66} z={backZ + 0.75} width={14} />
-      <Garland from={[-6.9, 7.3, backZ + 0.85]} to={[0, 7.3, backZ + 0.85]} sag={0.7} />
-      <Garland from={[0, 7.3, backZ + 0.85]} to={[6.9, 7.3, backZ + 0.85]} sag={0.7} />
+      <RBox size={[16.4, 0.32, 0.5]} r={0.06} position={[0, 7.9, backZ + 0.45]} color="#5e2f1b" />
+      <Toran y={7.66} z={backZ + 0.75} width={15.2} />
+      <Garland from={[-7.5, 7.3, backZ + 0.85]} to={[0, 7.3, backZ + 0.85]} sag={0.7} />
+      <Garland from={[0, 7.3, backZ + 0.85]} to={[7.5, 7.3, backZ + 0.85]} sag={0.7} />
       {/* hanging marigold strands at the pillars */}
-      {[-6.9, 6.9].map((x) =>
+      {[-7.5, 7.5].map((x) =>
         Array.from({ length: 10 }, (_, i) => (
           <Gem key={`${x}${i}`} r={0.075} position={[x, 7.3 - i * 0.16, backZ + 0.85]} rotation={[i, i, 0]} color={i % 2 ? '#f6b928' : '#f08a24'} />
         )),
       )}
       {/* banana plants flank the Golu */}
-      <group position={[-7.1, 0, 0.6]}>
+      <group position={[-8.1, 0, 0.6]}>
         <BananaPlant />
       </group>
-      <group position={[7.1, 0, 0.6]}>
+      <group position={[8.1, 0, 0.6]}>
         <BananaPlant flip={-1} />
       </group>
       {/* floor lamps */}

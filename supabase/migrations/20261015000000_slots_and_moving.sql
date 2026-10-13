@@ -1,21 +1,22 @@
 -- Fixed spots on each step, and letting visitors move their own Bommai.
--- The third row from the top (step 7) holds 4 Bommais and each row further down holds 2 more:
--- step k has 18 - 2k spots (step 1: 16 … step 7: 4), 70 in all. A spot holds one Bommai.
+-- The third row from the top (step 7) holds 9 Bommais (about one Bommai's width between neighbours)
+-- and each row further down holds one more: step k has 16 - k spots (step 1: 15 … step 7: 9),
+-- 84 in all. A spot holds one Bommai.
 -- src/data/options.js (spotsOnStep, centreOut) repeats the rule and the fill order.
 
 alter table public.bommais add column slot smallint;
-alter table public.bommais add constraint bommais_slot_on_step check (slot >= 0 and slot < 18 - 2 * step);
+alter table public.bommais add constraint bommais_slot_on_step check (slot >= 0 and slot < 16 - step);
 
--- Give existing Bommais spots from the middle outward (n/2, n/2 - 1, n/2 + 1, …), in join order.
+-- Give existing Bommais spots from the middle outward (c, c - 1, c + 1, … with c = n / 2 rounded down), in join order.
 with ranked as (
   select id, step, row_number() over (partition by step order by created_at, id) - 1 as r
   from public.bommais
 )
 update public.bommais b
-set slot = case when r.r % 2 = 0 then (18 - 2 * r.step) / 2 + r.r / 2
-                else (18 - 2 * r.step) / 2 - (r.r + 1) / 2 end
+set slot = case when r.r % 2 = 0 then (16 - r.step) / 2 + r.r / 2
+                else (16 - r.step) / 2 - (r.r + 1) / 2 end
 from ranked r
-where r.id = b.id and r.r < 18 - 2 * r.step;
+where r.id = b.id and r.r < 16 - r.step;
 
 create unique index bommais_step_slot_key on public.bommais (step, slot) where slot is not null;
 
@@ -36,7 +37,7 @@ begin
     raise exception 'This visitor already has a Bommai on the Golu';
   end if;
 
-  if (select count(*) from public.bommais where step = new.step) >= 18 - 2 * new.step then
+  if (select count(*) from public.bommais where step = new.step) >= 16 - new.step then
     raise exception 'Step % is full', new.step;
   end if;
 

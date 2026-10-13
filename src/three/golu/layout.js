@@ -4,8 +4,8 @@ import { MathUtils } from 'three'
 // Golu dimensions (world units; a Bommai is ~1 unit tall).
 export const GOLU = {
   steps: 9,
-  W: 13, // width of the bottom step; each step up is TAPER narrower (step 9: 9.8)
-  TAPER: 0.4,
+  W: 14.2, // width of the bottom step; each step up is TAPER narrower (step 7: 10.6, step 9: 9.4)
+  TAPER: 0.6,
   H: 0.62, // rise
   D: 0.95, // run
   Z0: 0, // front edge of step 1

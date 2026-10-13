@@ -193,9 +193,14 @@ export function normalizeConfig(c = {}) {
 
 export const OPEN_STEPS = [1, 2, 3, 4, 5, 6, 7]
 export const LOCKED_STEPS = [8, 9]
-// How many Bommais each community step holds: the third row from the top (step 7) holds 4, and each
-// row further down holds 2 more (step 6: 6, step 5: 8 … step 1: 16), 70 in all. Steps 8 and 9 hold
-// the traditional pieces. supabase/migrations/20261015000000_slots_and_moving.sql repeats the rule.
-export const spotsOnStep = (step) => (step >= 1 && step <= 7 ? 18 - 2 * step : 0)
-// The order spots fill when none is chosen: from the middle outward (n/2, n/2 - 1, n/2 + 1, …).
-export const centreOut = (n) => Array.from({ length: n }, (_, r) => (r % 2 ? n / 2 - (r + 1) / 2 : n / 2 + r / 2))
+// How many Bommais each community step holds. The third row from the top (step 7) is 10.6 wide
+// (~9.7 usable); a Bommai on its stand is ~0.54 wide, and with about one Bommai's width between
+// neighbours, n of them need (2n - 1) x 0.54, so 9 fit. Each row further down holds one more
+// (step 6: 10 … step 1: 15), 84 in all. Steps 8 and 9 hold the traditional pieces.
+// supabase/migrations/20261015000000_slots_and_moving.sql repeats the rule.
+export const spotsOnStep = (step) => (step >= 1 && step <= 7 ? 16 - step : 0)
+// The order spots fill when none is chosen: from the middle outward (c, c - 1, c + 1, … with c = ⌊n/2⌋).
+export const centreOut = (n) => {
+  const c = Math.floor(n / 2)
+  return Array.from({ length: n }, (_, r) => (r % 2 ? c - (r + 1) / 2 : c + r / 2))
+}
