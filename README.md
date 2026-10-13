@@ -25,6 +25,8 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.
 - `src/data/options.js` is the whole customization catalog. A Bommai is just a set of option ids (body, skin_tone, hair, hair_color, outfit, outfit_color, face, face_extras, accessory, pose). Add an option there, and if it needs new geometry, one `case` in the matching renderer:
   - `src/three/bommai/Hair.jsx`, `Face.jsx`, `Accessory.jsx`, and outfits/poses in `Bommai.jsx`.
+- How an accessory is carried depends on the pose (`carryMode` in `src/three/bommai/Bommai.jsx`): held out in one hand, clasped between the palms for *Hands together*, tucked under an arm, hung from a strap, or slung on the back, so every accessory/pose pair makes sense.
+- **Desktop only for now:** screens narrower than 900px or shorter than 500px get a *Best on a computer* page (`src/ui/DesktopOnly.jsx`) instead of the 3D scene, with *Copy link* and *Open it anyway*.
 - All Bommais share one geometry/material cache (`src/three/prims.jsx`) so hundreds of them stay cheap.
 - `src/three/golu/Golu.jsx` builds the Golu, the room and the decorations. `TRADITIONAL_SLOTS` lists the pieces on the locked steps 8 and 9; swap a slot's `piece` for the owner's own figurine component (for example a glTF model) without touching anything else.
 - `src/three/golu/layout.js` lays out each step: the newest Bommai takes centre stage, the rest shuffle outward, and crowded steps compress.

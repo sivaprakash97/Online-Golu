@@ -55,8 +55,8 @@ export default function Face({ eyes, extras = [], hairColor, skin }) {
 
       {has('blush') && (
         <>
-          <Disc r={0.03} position={[0.135, -0.05, Z + 0.001]} color="#ef7f86" mat={{ opacity: 0.55 }} />
-          <Disc r={0.03} position={[-0.135, -0.05, Z + 0.001]} color="#ef7f86" mat={{ opacity: 0.55 }} />
+          <Disc r={0.028} position={[0.122, -0.05, Z - 0.002]} color="#ef7f86" mat={{ opacity: 0.55 }} />
+          <Disc r={0.028} position={[-0.122, -0.05, Z - 0.002]} color="#ef7f86" mat={{ opacity: 0.55 }} />
         </>
       )}
       {has('bindi') && <Ball r={0.014} position={[0, 0.085, Z]} scale={[1, 1, 0.5]} color="#c8102e" shadow={false} />}

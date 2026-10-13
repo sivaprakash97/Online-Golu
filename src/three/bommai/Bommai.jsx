@@ -23,6 +23,31 @@ const POSE_ARMS = {
   sitting: { L: [-0.85, 0, -0.18], R: [-0.85, 0, 0.18] },
 }
 
+// Arm angles for holding an item out in front at waist height (instead of letting it dangle).
+const HAND_OUT = { L: [-1.05, 0, -0.4], R: [-1.05, 0, 0.4] }
+// Free arm eased away from the body to make room for something tucked under it.
+const ARM_TUCK = { L: [0.05, 0, 0.3], R: [0.05, 0, -0.3] }
+
+// How an accessory is carried depends on the pose, so the two always make sense together.
+//   hand        held out in one hand          clasp       held between namaste palms
+//   chest       held in front with both hands (holding / sitting poses)
+//   tuck        under the free arm (laptop, book)
+//   strap       hanging from a neck strap (camera)
+//   slung       guitar on a strap across the front; slung-back when the hands are together
+//   head | back | ground  as before
+function carryMode(acc, pose) {
+  if (!acc || acc.id === 'none') return null
+  if (acc.hold === 'hand') return pose === 'namaste' ? 'clasp' : 'hand'
+  if (acc.hold === 'both') {
+    if (pose === 'holding' || pose === 'sitting') return 'chest'
+    if (acc.id === 'guitar') return pose === 'namaste' ? 'slung-back' : 'slung'
+    if (acc.id === 'camera') return 'strap'
+    if (acc.id === 'controller') return pose === 'namaste' ? 'clasp' : 'hand'
+    return 'tuck'
+  }
+  return acc.hold
+}
+
 const tmpColor = new THREE.Color()
 function shade(hex, amt) {
   tmpColor.set(hex)
@@ -250,6 +275,25 @@ function Drape({ look, tw, th, td, hipY }) {
   )
 }
 
+// A thin strap between two points (e.g. a camera strap up to the neck).
+function Strap({ from, to, color = '#2b2c33' }) {
+  const [x1, y1, z1] = from
+  const [x2, y2, z2] = to
+  const dy = y2 - y1
+  const dz = z2 - z1
+  const len = Math.hypot(x2 - x1, dy, dz)
+  return (
+    <RBox
+      size={[0.016, len, 0.008]}
+      r={0.003}
+      position={[(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2]}
+      rotation={[Math.atan2(dz, dy), 0, -Math.atan2(x2 - x1, dy)]}
+      color={color}
+      shadow={false}
+    />
+  )
+}
+
 export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
   const cfg = useMemo(() => normalizeConfig(config), [config])
   const look = useMemo(() => resolveLook(cfg), [cfg])
@@ -273,14 +317,21 @@ export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
   const shoulderY = hipY + th - 0.045
   const neckY = hipY + th
   const headY = neckY + 0.22
-  const arms = POSE_ARMS[cfg.pose]
-
   const acc = LOOKUP.accessory[cfg.accessory]
-  let mode = acc.hold
-  if (mode === 'both' && !['holding', 'sitting'].includes(cfg.pose)) mode = ['guitar', 'camera'].includes(acc.id) ? 'chest' : 'hand'
-  else if (mode === 'both') mode = 'chest'
-  if (mode === 'hand' && cfg.pose === 'namaste') mode = 'ground'
+  const mode = carryMode(acc, cfg.pose)
   const handSide = cfg.pose === 'waving' ? 'L' : 'R'
+  const sideX = handSide === 'L' ? 1 : -1
+  const arms = useMemo(() => {
+    const a = { ...POSE_ARMS[cfg.pose] }
+    if (mode === 'hand' && cfg.pose !== 'sitting') a[handSide] = HAND_OUT[handSide]
+    if (mode === 'tuck') a[handSide] = ARM_TUCK[handSide]
+    return a
+  }, [cfg.pose, mode, handSide])
+  // where the palms meet for namaste, so a clasped item sits right between them
+  const claspAt = useMemo(() => {
+    const v = new THREE.Vector3(0, -ARM_LEN, 0).applyEuler(new THREE.Euler(...POSE_ARMS.namaste.L))
+    return [0, shoulderY + v.y + 0.01, v.z + 0.04]
+  }, [shoulderY])
 
   // keeps a hand-held item upright no matter how the arm is rotated
   const counterRot = useMemo(() => {
@@ -288,7 +339,7 @@ export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
     return new THREE.Quaternion().setFromEuler(e).invert()
   }, [arms, handSide])
 
-  const handItem = mode === 'hand' && acc.id !== 'none' && (
+  const handItem = mode === 'hand' && (
     <group position={[0, -ARM_LEN - 0.01, 0.0]} quaternion={counterRot}>
       <Accessory id={acc.id} mode="hand" />
     </group>
@@ -321,7 +372,7 @@ export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
 
         <Cyl rt={0.055} h={0.06} position={[0, neckY + 0.02, 0]} color={look.skin} />
         <group position={[0, headY, 0]}>
-          <RBox size={[0.44, 0.4, 0.38]} r={0.11} seg={3} color={look.skin} mat={{ rough: 0.55 }} />
+          <RBox size={[0.44, 0.4, 0.38]} r={0.13} seg={4} color={look.skin} mat={{ rough: 0.55 }} />
           <Ball r={0.045} position={[0.225, -0.01, -0.01]} scale={[0.6, 1, 1]} color={look.skin} />
           <Ball r={0.045} position={[-0.225, -0.01, -0.01]} scale={[0.6, 1, 1]} color={look.skin} />
           <Face eyes={cfg.face} extras={cfg.face_extras} hairColor={cfg.hair === 'bald' ? shade(look.skin, -0.3) : look.hair} skin={look.skin} />
@@ -335,8 +386,43 @@ export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
           </group>
         )}
         {mode === 'back' && <Accessory id={acc.id} mode="back" torso={torsoInfo} />}
+        {mode === 'clasp' && (
+          <group position={claspAt}>
+            <Accessory id={acc.id} mode="clasp" />
+          </group>
+        )}
+        {mode === 'tuck' && (
+          <group position={[sideX * (tw / 2 + 0.035), shoulderY - 0.15, 0.01]}>
+            <Accessory id={acc.id} mode="tuck" />
+          </group>
+        )}
+        {mode === 'strap' && (
+          <>
+            <group position={[0, shoulderY - 0.15, td / 2 + 0.065]}>
+              <Accessory id={acc.id} mode="chest" />
+            </group>
+            <Strap from={[0.07, shoulderY - 0.09, td / 2 + 0.06]} to={[0.065, hipY + th + 0.005, td * 0.28]} />
+            <Strap from={[-0.07, shoulderY - 0.09, td / 2 + 0.06]} to={[-0.065, hipY + th + 0.005, td * 0.28]} />
+          </>
+        )}
+        {(mode === 'slung' || mode === 'slung-back') && (
+          <>
+            {/* strap from the right hip over the left shoulder */}
+            <RBox size={[0.024, th * 1.3, 0.012]} r={0.005} position={[0, hipY + th * 0.5, td / 2 + 0.014]} rotation={[0, 0, 0.62]} color="#4a2c1d" />
+            <RBox size={[0.024, th * 1.3, 0.012]} r={0.005} position={[0, hipY + th * 0.5, -td / 2 - 0.014]} rotation={[0, 0, -0.62]} color="#4a2c1d" />
+            {mode === 'slung' ? (
+              <group position={[0, shoulderY - 0.12, td / 2 + 0.1]}>
+                <Accessory id={acc.id} mode="chest" />
+              </group>
+            ) : (
+              <group position={[0, shoulderY - 0.14, -td / 2 - 0.07]} rotation={[0, Math.PI, 0]}>
+                <Accessory id={acc.id} mode="chest" />
+              </group>
+            )}
+          </>
+        )}
       </group>
-      {mode === 'ground' && acc.id !== 'none' && (
+      {mode === 'ground' && (
         <group position={[0.36, 0, 0.06]}>
           <Accessory id={acc.id} mode="ground" />
         </group>

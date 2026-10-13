@@ -368,15 +368,6 @@ export default function App() {
           </div>
         )}
 
-        <div className="rotate-prompt" aria-hidden={false}>
-          <div className="phone">
-            <div className="phone-screen">
-              <span>❋</span>
-            </div>
-          </div>
-          <h2>Turn your phone sideways</h2>
-          <p>The Golu is best experienced in landscape.</p>
-        </div>
       </div>
     </ThumbnailProvider>
   )
