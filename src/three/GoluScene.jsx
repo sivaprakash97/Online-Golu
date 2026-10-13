@@ -32,11 +32,30 @@ function shotFor(name, aspect, focus) {
   }
 }
 
-function CameraRig({ shot, focus, controlsEnabled }) {
+// The camera's target can't leave this box around the Golu, so panning never loses the scene.
+const BOUNDS = new THREE.Box3(new THREE.Vector3(-4.2, 1.7, -7), new THREE.Vector3(4.2, 5, 1.2))
+const MIN_DIST = 3
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+// a real mouse wheel sends big whole-number steps; a trackpad sends small, fractional ones
+const isMouseWheel = (e) => e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY))
+
+// Navigation (when `controlsEnabled`): drag to orbit within limits, two-finger scroll to pan,
+// pinch / ctrl+scroll / mouse wheel to zoom. `view` carries one-off commands from the UI:
+// { kind: 'reset' | 'in' | 'out', n } where n changes on every press.
+function CameraRig({ shot, focus, controlsEnabled, view }) {
   const ref = useRef()
-  const { size } = useThree()
+  const { size, gl } = useThree()
   const aspect = size.width / size.height
   const focusKey = focus ? focus.join(',') : ''
+  const touched = useRef(false) // stop the idle drift once someone starts exploring
+  const enabled = useRef(controlsEnabled)
+  enabled.current = controlsEnabled
+  const home = shotFor('home', aspect)
+  const maxDist = dist(home.pos, home.target) * 1.15
+  const limits = useRef({ min: MIN_DIST, max: maxDist })
+  limits.current = { min: MIN_DIST, max: maxDist }
+
   useEffect(() => {
     const c = ref.current
     if (!c) return
@@ -45,31 +64,102 @@ function CameraRig({ shot, focus, controlsEnabled }) {
     c.setLookAt(...s.pos, ...s.target, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shot, focusKey, aspect])
+
   useEffect(() => {
     const c = ref.current
     if (!c) return
-    c.minDistance = 2.5
-    c.maxDistance = 22
-    c.minPolarAngle = 0.6
-    c.maxPolarAngle = 1.62
-    c.minAzimuthAngle = -0.85
-    c.maxAzimuthAngle = 0.85
-  }, [])
-  // gentle idle drift on the home screen so the diorama feels alive
+    c.setBoundary(BOUNDS)
+    c.boundaryFriction = 0.2
+    c.minDistance = MIN_DIST
+    c.maxDistance = maxDist
+    c.minPolarAngle = 0.95 // not straight down
+    c.maxPolarAngle = 1.5 // never below the floor
+    c.minAzimuthAngle = -0.7
+    c.maxAzimuthAngle = 0.7
+    c.truckSpeed = 1.4
+    const stop = () => (touched.current = true)
+    c.addEventListener('controlstart', stop)
+    return () => c.removeEventListener('controlstart', stop)
+  }, [maxDist])
+
+  // reset / zoom buttons
+  useEffect(() => {
+    const c = ref.current
+    if (!c || !view?.n) return
+    c.smoothTime = 0.45
+    if (view.kind === 'reset') {
+      const s = shotFor(shot, aspect, focus)
+      c.setLookAt(...s.pos, ...s.target, true)
+    } else {
+      touched.current = true
+      const k = view.kind === 'in' ? 0.72 : 1.38
+      c.dollyTo(clamp(c.distance * k, limits.current.min, limits.current.max), true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view?.n])
+
+  // Wheel and trackpad: two-finger scroll pans, pinch (ctrl+wheel in Chrome/Firefox) or a mouse wheel zooms.
+  useEffect(() => {
+    const el = gl.domElement
+    const zoomTo = (d) => {
+      const c = ref.current
+      c.smoothTime = 0.12
+      c.dollyTo(clamp(d, limits.current.min, limits.current.max), true)
+    }
+    const onWheel = (e) => {
+      const c = ref.current
+      if (!c || !enabled.current) return
+      e.preventDefault()
+      touched.current = true
+      if (e.ctrlKey || isMouseWheel(e)) {
+        zoomTo(c.distance * Math.exp(e.deltaY * (e.ctrlKey ? 0.012 : 0.0015)))
+      } else {
+        c.smoothTime = 0.12
+        const k = c.distance * 0.0011
+        c.truck(e.deltaX * k, e.deltaY * k, true)
+      }
+    }
+    // Safari reports trackpad pinches as gesture events instead of ctrl+wheel
+    let startDist = 0
+    const onGestureStart = (e) => {
+      if (!ref.current || !enabled.current) return
+      e.preventDefault()
+      touched.current = true
+      startDist = ref.current.distance
+    }
+    const onGestureChange = (e) => {
+      if (!ref.current || !enabled.current || !startDist) return
+      e.preventDefault()
+      zoomTo(startDist / e.scale)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('gesturestart', onGestureStart)
+    el.addEventListener('gesturechange', onGestureChange)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('gesturestart', onGestureStart)
+      el.removeEventListener('gesturechange', onGestureChange)
+    }
+  }, [gl])
+
+  // gentle idle drift on the home screen until someone starts exploring
   useFrame(({ clock }) => {
     const c = ref.current
-    if (!c || shot !== 'home' || controlsEnabled) return
+    if (!c || shot !== 'home' || touched.current) return
     const s = shotFor('home', aspect)
     const t = clock.elapsedTime * 0.12
     c.setLookAt(s.pos[0] + Math.sin(t) * 1.1, s.pos[1] + Math.sin(t * 0.7) * 0.15, s.pos[2], ...s.target, true)
   })
-  // drei only ticks enabled controls, so keep them enabled and switch user input instead
+
+  // drei only ticks enabled controls, so keep them enabled and switch user input instead.
+  // Left drag orbits, right drag pans; one finger orbits, two fingers pinch-zoom and pan.
+  // The wheel is handled above (camera-controls' own wheel action is off).
   const input = controlsEnabled
   return (
     <CameraControls
       ref={ref}
       makeDefault
-      mouseButtons={input ? { left: 1, middle: 0, right: 2, wheel: 8 } : { left: 0, middle: 0, right: 0, wheel: 0 }}
+      mouseButtons={input ? { left: 1, middle: 2, right: 2, wheel: 0 } : { left: 0, middle: 0, right: 0, wheel: 0 }}
       touches={input ? { one: 32, two: 1024, three: 0 } : { one: 0, two: 0, three: 0 }}
     />
   )
@@ -264,6 +354,7 @@ export default function GoluScene({
   onPickBommai,
   celebrate,
   paused,
+  view,
 }) {
   const layout = useMemo(() => computeLayout(bommais), [bommais])
   const placing = mode === 'place'
@@ -290,7 +381,7 @@ export default function GoluScene({
       <Suspense fallback={null}>
         <Lights />
         <SoftEnv intensity={0.22} />
-        <CameraRig shot={shot} focus={focus} controlsEnabled={mode === 'explore'} />
+        <CameraRig shot={shot} focus={focus} controlsEnabled={mode === 'home' || mode === 'done'} view={view} />
         <Golu
           interactive={placing}
           tierStates={tierStates}
@@ -309,7 +400,7 @@ export default function GoluScene({
               spawn={spawns[b.id]}
               isMine={myIds.includes(b.id)}
               showTag={tagId === b.id}
-              onPick={mode === 'explore' || mode === 'done' || mode === 'home' ? onPickBommai : null}
+              onPick={mode === 'done' || mode === 'home' ? onPickBommai : null}
               onLanded={onLanded}
             />
           )

@@ -91,7 +91,8 @@ function StepRail({ counts, hover, selected, onHover, onPick }) {
 
 export default function App() {
   const [bommais, setBommais] = useState([])
-  const [mode, setMode] = useState('home') // home | explore | create | place | placing | done
+  const [mode, setMode] = useState('home') // home (explorable Golu) | create | place | placing | done
+  const [view, setView] = useState({ kind: null, n: 0 }) // camera commands from the view buttons
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
   const [hoverStep, setHoverStep] = useState(null)
   const [selectedStep, setSelectedStep] = useState(null)
@@ -223,9 +224,16 @@ export default function App() {
     setTagId(id)
   }
 
+  const camera = (kind) => setView((v) => ({ kind, n: v.n + 1 }))
+  const resetView = () => {
+    setFocusId(null)
+    setTagId(null)
+    camera('reset')
+  }
+
   // the main call to action: make one, find yours, or nothing left to take
   const mainCta = hasMine ? (
-    <button className="btn-primary" onClick={() => (setMode('explore'), findMine())}>
+    <button className="btn-primary" onClick={findMine}>
       Find my Bommai
     </button>
   ) : goluFull ? (
@@ -261,18 +269,18 @@ export default function App() {
             focusId={focusId}
             tagId={tagId}
             onPickBommai={(b) => {
-              if (mode === 'home' && b) setMode('explore')
               setTagId(b ? b.id : null)
             }}
             celebrate={celebrate}
             paused={mode === 'create'}
+            view={view}
           />
         </div>
 
         {/* HOME */}
-        {(mode === 'home' || mode === 'explore') && (
+        {mode === 'home' && (
           <>
-            <header className={`hero ${mode === 'explore' ? 'hero-min' : ''}`}>
+            <header className="hero">
               <div className="brand">
                 <span className="brand-mark" aria-hidden>
                   ❋
@@ -281,27 +289,22 @@ export default function App() {
                   The Internet <em>Golu</em>
                 </h1>
               </div>
-              {mode === 'home' && <p className="tagline">Make a little Bommai. Add it to the Golu.</p>}
+              <p className="tagline">Make a little Bommai. Add it to the Golu.</p>
               <Counter n={count} live={live} />
             </header>
-            <div className="cta-row">
-              {mode === 'home' ? (
-                <>
-                  {mainCta}
-                  <button className="btn-secondary" onClick={() => setMode('explore')}>
-                    Explore the Golu
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button className="btn-secondary" onClick={() => (setMode('home'), setTagId(null), setFocusId(null))}>
-                    ← Back
-                  </button>
-                  {mainCta}
-                </>
-              )}
+            <div className="cta-row">{mainCta}</div>
+            <p className="explore-hint">Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is</p>
+            <div className="view-controls" role="group" aria-label="View">
+              <button onClick={() => camera('in')} aria-label="Zoom in" title="Zoom in">
+                +
+              </button>
+              <button onClick={() => camera('out')} aria-label="Zoom out" title="Zoom out">
+                −
+              </button>
+              <button className="view-reset" onClick={resetView} aria-label="Reset view" title="Reset view">
+                ⟲ <span>Reset view</span>
+              </button>
             </div>
-            {mode === 'explore' && <p className="explore-hint">Drag to look around · tap a Bommai to see who it is</p>}
           </>
         )}
 
@@ -352,7 +355,7 @@ export default function App() {
                 <button className="btn-primary" onClick={shareMine}>
                   Share my Bommai
                 </button>
-                <button className="btn-secondary" onClick={() => (setMode('explore'), findMine())}>
+                <button className="btn-secondary" onClick={() => (setMode('home'), findMine())}>
                   Explore
                 </button>
               </div>

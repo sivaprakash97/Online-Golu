@@ -4,6 +4,8 @@ A community Bommai Golu on the web. Anyone can make a little customizable Golu d
 
 **Core loop:** see the Golu → Add your Bommai → customize → choose a step → watch it hop onto the step → share.
 
+**Getting around the Golu** (works as soon as the page opens): drag to look around, two-finger scroll to move, pinch (or a mouse wheel) to zoom, and the **+ / − / Reset view** buttons in the corner. Movement is limited to a box around the Golu so it can't drift out of view (`BOUNDS` and the angle/distance limits in `CameraRig`, `src/three/GoluScene.jsx`).
+
 ## Run it
 
 ```bash

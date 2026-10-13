@@ -205,9 +205,6 @@ input:focus-visible {
   font-size: clamp(15px, 1.4vw, 19px);
   color: var(--ink-2);
 }
-.hero-min .counter {
-  margin-top: 10px;
-}
 .counter {
   margin-left: 38px;
   display: inline-flex;
@@ -248,6 +245,45 @@ input:focus-visible {
   gap: 14px;
   animation: rise 0.9s 0.25s cubic-bezier(0.2, 0.9, 0.2, 1) both;
   white-space: nowrap;
+}
+.view-controls {
+  position: absolute;
+  right: clamp(12px, 2.5vw, 36px);
+  bottom: clamp(18px, 5vh, 44px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(20, 10, 15, 0.6);
+  border: 1px solid var(--line);
+  animation: rise 0.9s 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+.view-controls button {
+  min-width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--panel-2);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.view-controls button:hover {
+  background: #4a2834;
+}
+.view-controls .view-reset {
+  font-size: 15px;
+  padding: 0 10px;
+}
+.view-controls .view-reset span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .explore-hint {
   position: absolute;
