@@ -16,6 +16,10 @@ Without Supabase env vars the app runs on an in-memory store seeded with the dem
 
 `npm run build` makes a normal static build in `dist/`. `npm run build:single` inlines everything into one HTML file in `dist-single/` (used for quick shareable previews).
 
+## Hosting
+
+Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set. Every PR gets a preview deployment (visible to the Vercel account owner), and `main` deploys to production at the public `internet-golu` vercel.app domain.
+
 ## How it's built
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.
