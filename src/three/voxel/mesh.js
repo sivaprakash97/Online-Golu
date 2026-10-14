@@ -12,10 +12,6 @@ const col = new THREE.Color()
 export function meshGrid(grid, size) {
   const { sx, sy, sz, data, ox, oz } = grid
   const dims = [sx, sy, sz]
-  const at = (p0, p1, p2) => {
-    if (p0 < 0 || p1 < 0 || p2 < 0 || p0 >= sx || p1 >= sy || p2 >= sz) return 0
-    return data[(p1 * sz + p2) * sx + p0]
-  }
   // bounds of what is filled, so the sweep stays small
   const lo = [sx, sy, sz]
   const hi = [-1, -1, -1]
@@ -36,60 +32,61 @@ export function meshGrid(grid, size) {
   ]
   if (hi[0] < 0) return toGeometry(out)
 
-  const p = [0, 0, 0]
-  const filled = (a, b, c) => at(a, b, c) !== 0
+  // index strides along x, y and z, so neighbours are found without recomputing coordinates
+  const stride = [1, sz * sx, sx]
   for (let d = 0; d < 3; d++) {
     const u = (d + 1) % 3
     const v = (d + 2) % 3
     const nu = hi[u] - lo[u] + 1
     const nv = hi[v] - lo[v] + 1
+    const sd = stride[d]
+    const su = stride[u]
+    const sv = stride[v]
     const mask = new Float64Array(nu * nv)
     for (const dir of [1, -1]) {
       for (let s = lo[d]; s <= hi[d]; s++) {
         // build the mask of visible faces on this slice
+        const outside = s + dir < 0 || s + dir >= dims[d]
         let n = 0
-        for (let j = 0; j < nv; j++)
+        for (let j = 0; j < nv; j++) {
+          const cv = lo[v] + j
+          const vm = cv > 0
+          const vp = cv < dims[v] - 1
           for (let i = 0; i < nu; i++, n++) {
-            p[d] = s
-            p[u] = lo[u] + i
-            p[v] = lo[v] + j
-            const w = at(p[0], p[1], p[2])
+            const cu = lo[u] + i
+            const idx = s * sd + cu * su + cv * sv
+            const w = data[idx]
             if (!w) {
               mask[n] = 0
               continue
             }
-            p[d] = s + dir
-            if (at(p[0], p[1], p[2])) {
+            if (outside) {
+              mask[n] = w * 256 + 255
+              continue
+            }
+            const q = idx + dir * sd
+            if (data[q]) {
               mask[n] = 0
               continue
             }
             // ambient occlusion at the four corners, sampled in the layer the face looks into
-            let ao = 0
-            const cu = lo[u] + i
-            const cv = lo[v] + j
-            const q = [0, 0, 0]
-            q[d] = s + dir
-            const occ = (du, dv) => {
-              q[u] = cu + du
-              q[v] = cv + dv
-              return filled(q[0], q[1], q[2]) ? 1 : 0
-            }
-            const corners = [
-              [-1, -1],
-              [1, -1],
-              [1, 1],
-              [-1, 1],
-            ]
-            for (let k = 0; k < 4; k++) {
-              const [du, dv] = corners[k]
-              const s1 = occ(du, 0)
-              const s2 = occ(0, dv)
-              const c = occ(du, dv)
-              const a = s1 && s2 ? 0 : 3 - (s1 + s2 + c)
-              ao |= a << (k * 2)
-            }
-            mask[n] = w * 256 + ao
+            const um = cu > 0
+            const up = cu < dims[u] - 1
+            const l = um && data[q - su] ? 1 : 0
+            const r = up && data[q + su] ? 1 : 0
+            const b = vm && data[q - sv] ? 1 : 0
+            const t = vp && data[q + sv] ? 1 : 0
+            const lb = um && vm && data[q - su - sv] ? 1 : 0
+            const rb = up && vm && data[q + su - sv] ? 1 : 0
+            const rt = up && vp && data[q + su + sv] ? 1 : 0
+            const lt = um && vp && data[q - su + sv] ? 1 : 0
+            const a0 = l && b ? 0 : 3 - (l + b + lb)
+            const a1 = r && b ? 0 : 3 - (r + b + rb)
+            const a2 = r && t ? 0 : 3 - (r + t + rt)
+            const a3 = l && t ? 0 : 3 - (l + t + lt)
+            mask[n] = w * 256 + (a0 | (a1 << 2) | (a2 << 4) | (a3 << 6))
           }
+        }
         // greedy merge
         n = 0
         for (let j = 0; j < nv; j++)

@@ -45,27 +45,23 @@ export const HAIR_COLORS = [
   { id: 'blonde', color: '#dcbf86' },
 ]
 
-// bottom: pants | skirt | saree | dhoti | dress | shorts
-// top length: how far down the torso block extends (1 = waist, 1.6 = knee-length tunic)
-// pattern: woven into the voxels of the main colour (butta | polka | check | stripe | sparkle)
+// bottom: pants | skirt | saree | dhoti | dress
+// topLength: how far down the top reaches (1 = waist, 1.6 = knee-length tunic)
+// pattern: woven into the voxels of the main colour (butta = little gold motifs)
 export const OUTFITS = [
   { id: 'silk-saree', label: 'Silk saree', bottom: 'saree', top: 'blouse', drape: 'pallu', accent: '#e8b33c', pattern: 'butta', color: 'kumkum' },
-  { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.55, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
-  { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
   { id: 'pavadai', label: 'Pavadai', bottom: 'skirt', top: 'blouse', drape: 'davani', accent: '#e8b33c', pattern: 'butta', color: 'parrot' },
+  { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.55, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose' },
+  { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.5, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
+  { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
+  { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
   { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky' },
-  { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', pants: '#3b5b8c', color: 'kumkum' },
+  { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', top: 'tee', pants: '#3b5b8c', color: 'kumkum' },
   { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
   { id: 'hoodie', label: 'Hoodie', bottom: 'pants', top: 'hoodie', pants: '#2f2f38', color: 'lavender' },
-  { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
-  { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.5, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose' },
-  { id: 'overalls', label: 'Overalls', bottom: 'pants', top: 'overalls', pants: null, color: 'mustard' },
-  { id: 'jibba', label: 'Jibba + shorts', bottom: 'shorts', topLength: 1.15, pants: '#e9dfc9', color: 'mint' },
-  { id: 'polka-dress', label: 'Polka dot dress', bottom: 'dress', top: 'straps', pattern: 'polka', color: 'mint' },
-  { id: 'sparkle-dress', label: 'Sparkle dress', bottom: 'dress', pattern: 'sparkle', color: 'charcoal' },
-  { id: 'check-jacket', label: 'Check jacket', bottom: 'pants', top: 'jacket', pattern: 'check', pants: '#6b3f2a', color: 'charcoal' },
-  { id: 'stripe-skirt', label: 'Stripes + skirt', bottom: 'mini', pattern: 'stripe', pants: '#2f5d9a', color: 'sky' },
 ]
+// Outfits that were dropped, and what dolls already wearing them change into.
+const RETIRED_OUTFITS = { jibba: 'kurta', overalls: 'shirt-pants' }
 
 export const OUTFIT_COLORS = [
   { id: 'kumkum', color: '#c8323a' },
@@ -134,6 +130,10 @@ export const POSES = [
   { id: 'namaste', label: 'Hands together' },
   { id: 'holding', label: 'Holding' },
   { id: 'sitting', label: 'Sitting' },
+  { id: 'cross-legged', label: 'Cross-legged' },
+  { id: 'dancing', label: 'Dancing' },
+  { id: 'hips', label: 'Hands on hips' },
+  { id: 'cheering', label: 'Cheering' },
 ]
 
 export const DEFAULT_CONFIG = {
@@ -195,7 +195,7 @@ export function normalizeConfig(c = {}) {
     skin_tone: ok(LOOKUP.skin, c.skin_tone, D.skin_tone),
     hair: ok(LOOKUP.hair, c.hair, D.hair),
     hair_color: ok(LOOKUP.hairColor, c.hair_color, D.hair_color),
-    outfit: ok(LOOKUP.outfit, c.outfit, D.outfit),
+    outfit: ok(LOOKUP.outfit, RETIRED_OUTFITS[c.outfit] || c.outfit, D.outfit),
     outfit_color: ok(LOOKUP.outfitColor, c.outfit_color, D.outfit_color),
     face: ok(LOOKUP.eyes, c.face, D.face),
     face_extras: Array.isArray(c.face_extras) ? c.face_extras.filter((e) => FACE_EXTRAS.some((f) => f.id === e)) : [],

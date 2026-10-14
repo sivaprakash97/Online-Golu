@@ -1,5 +1,5 @@
 import { shiny } from '../voxel/grid.js'
-import { HEAD1, SHOULDER, HIP, mod } from './dims.js'
+import { HEAD1, HW, HD, SHOULDER, HIP, mod } from './dims.js'
 
 // Accessories as little voxel models. Each is drawn relative to an anchor (see buildBommai):
 // for things held in a hand the anchor is the top of the hand, for things held in front it is
@@ -7,18 +7,27 @@ import { HEAD1, SHOULDER, HIP, mod } from './dims.js'
 // items use the doll's own coordinates.
 
 const STEEL = shiny('#cdd2d9')
-const WOOD = '#c98f55'
 const WHITE = '#f8f5ee'
 const DARK = '#2b2c33'
 
+// Draw relative to an anchor, optionally mirrored in x or z.
 function at(g, [ax, ay, az], { mx = false, mz = false } = {}) {
   const X = (x0, x1) => (mx ? [ax - x1, ax - x0] : [ax + x0, ax + x1])
   const Z = (z0, z1) => (mz ? [az - z1, az - z0] : [az + z0, az + z1])
+  const wrap = (c) => (typeof c === 'function' ? (x, y, z) => c(mx ? ax - x - 1 : x - ax, y - ay, mz ? az - z - 1 : z - az) : c)
   return {
     box(x0, x1, y0, y1, z0, z1, c) {
       const [a, b] = X(x0, x1)
       const [c0, c1] = Z(z0, z1)
-      g.box(a, b, ay + y0, ay + y1, c0, c1, c)
+      g.box(a, b, ay + y0, ay + y1, c0, c1, wrap(c))
+    },
+    rounded(x0, x1, y0, y1, z0, z1, r, c, vertical) {
+      const [a, b] = X(x0, x1)
+      const [c0, c1] = Z(z0, z1)
+      g.rounded(a, b, ay + y0, ay + y1, c0, c1, r, wrap(c), vertical)
+    },
+    ellipsoid(cx, cy, cz, rx, ry, rz, c) {
+      g.ellipsoid(mx ? ax - cx : ax + cx, ay + cy, mz ? az - cz : az + cz, rx, ry, rz, wrap(c))
     },
     set(x, y, z, c) {
       this.box(x, x + 1, y, y + 1, z, z + 1, c)
@@ -29,66 +38,57 @@ function at(g, [ax, ay, az], { mx = false, mz = false } = {}) {
 function guitar(p) {
   const body = '#4f93d2'
   const rim = '#2f6aa6'
-  // lower bout, waist, upper bout
-  p.box(-9, -4, -3, 4, 0, 2, body)
-  p.box(-4, 0, -2, 3, 0, 2, body)
-  for (const [x, y] of [
-    [-9, -3],
-    [-9, 3],
-    [-1, -2],
-    [-1, 2],
-  ])
-    p.box(x, x + 1, y, y + 1, 0, 2, null)
-  p.box(-9, 0, -3, -2, 0, 1, rim)
-  p.box(-3, -1, 0, 2, 1, 2, '#1d2533') // sound hole
-  p.box(-8, -7, -1, 3, 1, 2, '#6b3f22') // bridge
-  p.box(-6, -5, -2, -1, 1, 2, '#e05a5a') // a bit of decoration, like the reference
-  p.box(0, 10, 0, 2, 0, 1, '#7a4a2a') // neck
-  for (let x = 1; x < 10; x += 3) p.set(x, 1, 1, '#efe6d0') // fret dots
-  p.box(10, 13, -1, 3, 0, 1, '#3b2418') // head
-  for (const x of [10, 12]) (p.set(x, 3, 0, WHITE), p.set(x, -2, 0, WHITE))
+  // lower bout, waist and upper bout, lying along +x with the strings facing +z
+  p.ellipsoid(-12, 0, 2, 7.5, 8, 2.2, (x, y, z) => (z < 1 ? rim : body))
+  p.ellipsoid(-3, 0, 2, 5.5, 6, 2.2, (x, y, z) => (z < 1 ? rim : body))
+  p.ellipsoid(-5, 0, 3.6, 2.4, 2.4, 1, '#1d2533') // sound hole
+  p.box(-16, -14, -4, 5, 3, 5, '#6b3f22') // bridge
+  p.box(-11, -9, -6, -4, 3, 4, '#e05a5a') // a bit of decoration
+  p.box(1, 22, -1, 2, 1, 4, '#7a4a2a') // neck
+  for (let x = 4; x < 22; x += 5) p.set(x, 0, 4, '#efe6d0') // fret dots
+  p.rounded(21, 27, -2, 4, 1, 4, 1, '#3b2418') // head
+  for (const x of [22, 25]) (p.set(x, 4, 2, WHITE), p.set(x, -3, 2, WHITE))
 }
 
-function hat(g, { color, band, ears, face = true }) {
-  // wide enough to swallow the stepped hair underneath
-  g.box(-12, 12, 37, HEAD1 + 6, -10, 9, color)
-  for (const x of [-12, 11]) for (const z of [-10, 8]) g.box(x, x + 1, 37, HEAD1 + 6, z, z + 1, null)
-  for (let x = -12; x < 12; x++) for (const z of [-10, 8]) g.set(x, HEAD1 + 5, z, null)
-  for (let z = -10; z < 9; z++) for (const x of [-12, 11]) g.set(x, HEAD1 + 5, z, null)
-  if (band) g.box(-12, 12, 37, 38, -10, 9, (x, y, z) => (g.has(x, y, z) ? band : null))
-  if (face) {
-    // its own little face, high on the front
-    for (const x of [-6, 4]) g.box(x, x + 2, 42, 44, 8, 9, '#1c1c22')
-    g.set(-5, 43, 8, WHITE)
-    g.set(5, 43, 8, WHITE)
-    g.box(-1, 1, 41, 42, 8, 9, '#1c1c22')
-    for (const x of [-9, 6]) g.box(x, x + 3, 40, 41, 8, 9, ears.blush)
+function hat(g, { color, band, ears }) {
+  // wide enough to swallow the hair underneath
+  g.rounded(-HW - 4, HW + 4, 72, HEAD1 + 11, -HD - 4, HD + 4, 6, (x, y) => (y < 72 + 3 && band ? band : color))
+  // its own little face, high on the front
+  const z = HD + 3
+  for (const s of [-1, 1]) {
+    const x0 = s < 0 ? -11 : 7
+    g.box(x0, x0 + 4, 81, 85, z, z + 1, '#1c1c22')
+    g.set(x0 + 1, 84, z, WHITE)
+    g.box(s < 0 ? -16 : 12, s < 0 ? -12 : 16, 78, 80, z, z + 1, ears.cheek)
   }
+  g.box(-2, 2, 79, 81, z, z + 1, '#1c1c22')
   ears.draw(g)
 }
 
 const HEAD_ITEMS = {
   headphones(g) {
     const c = '#e8667a'
-    g.box(-11, 11, HEAD1 + 2, HEAD1 + 3, -1, 2, DARK)
-    for (const x of [-12, 11]) g.box(x, x + 1, 33, HEAD1 + 3, -1, 2, DARK)
-    for (const x0 of [-14, 11]) {
-      g.box(x0, x0 + 3, 28, 35, -2, 3, c)
-      g.box(x0 + (x0 < 0 ? 0 : 2), x0 + (x0 < 0 ? 1 : 3), 29, 34, -1, 2, '#c84a60')
+    g.rounded(-HW - 3, HW + 3, HEAD1 + 2, HEAD1 + 5, -2, 3, 1.5, DARK)
+    for (const x of [-HW - 4, HW + 2]) g.box(x, x + 2, 68, HEAD1 + 3, -2, 3, DARK)
+    for (const s of [-1, 1]) {
+      const x0 = s < 0 ? -HW - 7 : HW + 2
+      g.rounded(x0, x0 + 5, 56, 70, -5, 6, 2.5, c)
+      g.rounded(s < 0 ? x0 : x0 + 3, s < 0 ? x0 + 2 : x0 + 5, 59, 67, -2, 3, 1, '#c84a60')
     }
   },
   'flower-crown'(g) {
-    const rose = (x, y, z, w = 3, d = 3) => {
-      g.box(x, x + w, y, y + 3, z, z + d, '#d23a3a')
-      g.set(x + (w >> 1), y + 1, z + d - 1, '#a01e26')
-      g.set(x + (w >> 1), y + 2, z + (d >> 1), '#ef6a5e')
+    const rose = (x, y, z) => {
+      g.ellipsoid(x, y, z, 3.2, 3, 3.2, (xx, yy, zz) => (mod(xx + yy + zz, 3) ? '#d23a3a' : '#b52a30'))
+      g.ellipsoid(x, y + 0.5, z, 1.4, 1.6, 1.4, '#ef6a5e')
     }
-    for (const x of [-10, -5, 0, 5]) rose(x + 1, 40, 8, 3, 2)
-    for (const z of [-7, -2, 3]) (rose(-13, 40, z, 2, 3), rose(11, 40, z, 2, 3))
-    for (const x of [-7, -2, 3]) rose(x, 40, -11, 3, 2)
-    const leaf = '#3e8f3e'
-    for (const x of [-7, -2, 3, 8]) g.set(x, 41, 8, leaf)
-    for (const z of [-4, 1, 6]) (g.set(-12, 41, z, leaf), g.set(11, 41, z, leaf))
+    // a ring of roses and leaves round the head, just above the fringe
+    for (let a = 0; a < 16; a++) {
+      const t = (a / 16) * Math.PI * 2
+      const x = Math.cos(t) * (HW + 3)
+      const z = Math.sin(t) * (HD + 3)
+      if (a % 2) g.ellipsoid(x, 79, z, 2.6, 1.6, 2.6, '#3e8f3e')
+      else rose(x, 80, z)
+    }
   },
   'bear-hat'(g) {
     const c = '#c98a5c'
@@ -96,13 +96,11 @@ const HEAD_ITEMS = {
       color: c,
       band: '#a8693f',
       ears: {
-        blush: '#e58a7a',
+        cheek: '#e58a7a',
         draw(g) {
-          for (const x0 of [-10, 5]) {
-            g.box(x0, x0 + 5, HEAD1 + 6, HEAD1 + 9, -3, 1, c)
-            g.set(x0, HEAD1 + 8, -3, null)
-            g.set(x0 + 4, HEAD1 + 8, -3, null)
-            g.box(x0 + 1, x0 + 4, HEAD1 + 6, HEAD1 + 8, 1, 2, '#8e5634')
+          for (const s of [-1, 1]) {
+            g.ellipsoid(s * 15 - 0.5, HEAD1 + 11, -3, 5, 5, 3, c)
+            g.ellipsoid(s * 15 - 0.5, HEAD1 + 11, -1, 3, 3, 2, '#8e5634')
           }
         },
       },
@@ -114,12 +112,14 @@ const HEAD_ITEMS = {
       color: c,
       band: '#f08aa0',
       ears: {
-        blush: '#f6a3b4',
+        cheek: '#f6a3b4',
         draw(g) {
-          g.box(-8, -4, HEAD1 + 6, HEAD1 + 16, -2, 1, c)
-          g.box(-7, -5, HEAD1 + 7, HEAD1 + 15, 1, 2, '#f08aa0')
-          g.box(3, 7, HEAD1 + 6, HEAD1 + 11, -2, 1, c)
-          g.box(4, 6, HEAD1 + 7, HEAD1 + 10, 1, 2, '#f08aa0')
+          g.rounded(-15, -7, HEAD1 + 8, HEAD1 + 30, -4, 2, 3.5, c)
+          g.rounded(-13, -9, HEAD1 + 11, HEAD1 + 28, 1, 3, 1.5, '#f08aa0')
+          // the other ear flops over
+          g.rounded(6, 14, HEAD1 + 8, HEAD1 + 18, -4, 2, 3.5, c)
+          g.rounded(13, 24, HEAD1 + 12, HEAD1 + 18, -4, 2, 3, c)
+          g.rounded(14, 22, HEAD1 + 13, HEAD1 + 17, 1, 3, 1.5, '#f08aa0')
         },
       },
     })
@@ -130,13 +130,12 @@ const HEAD_ITEMS = {
       color: c,
       band: '#9294d2',
       ears: {
-        blush: '#8d86d8',
+        cheek: '#8d86d8',
         draw(g) {
-          for (const x0 of [-10, 5]) {
-            g.box(x0, x0 + 5, HEAD1 + 6, HEAD1 + 7, -3, 1, c)
-            g.box(x0 + 1, x0 + 4, HEAD1 + 7, HEAD1 + 8, -3, 1, c)
-            g.box(x0 + 2, x0 + 3, HEAD1 + 8, HEAD1 + 9, -3, 1, c)
-            g.box(x0 + 2, x0 + 3, HEAD1 + 6, HEAD1 + 8, 1, 2, '#6a5fc0')
+          for (const s of [-1, 1]) {
+            const x0 = s < 0 ? -20 : 8
+            for (let k = 0; k < 8; k++) g.box(x0 + k, x0 + 12 - k, HEAD1 + 10 + k, HEAD1 + 11 + k, -5, 1, c)
+            for (let k = 0; k < 5; k++) g.box(x0 + 3 + k, x0 + 9 - k, HEAD1 + 11 + k, HEAD1 + 12 + k, 1, 2, '#6a5fc0')
           }
         },
       },
@@ -144,107 +143,111 @@ const HEAD_ITEMS = {
   },
   'sun-hat'(g) {
     const c = '#f4f1ea'
-    for (let x = -17; x < 17; x++)
-      for (let z = -14; z < 13; z++) {
-        const e = ((x + 0.5) / 17) ** 2 + ((z + 0.5) / 13.5) ** 2
+    for (let x = -34; x < 34; x++)
+      for (let z = -28; z < 26; z++) {
+        const e = ((x + 0.5) / 34) ** 2 + ((z + 1.5) / 27) ** 2
         if (e > 1) continue
         const ax = Math.abs(x + 0.5)
-        const curl = ax > 14 ? 2 : ax > 12 ? 1 : 0 // brim curls up at the sides
-        for (let k = 0; k <= curl; k++) g.set(x, 41 + k, z, c)
+        const curl = ax > 29 ? 3 : ax > 25 ? 1 : 0 // brim curls up at the sides
+        for (let k = 0; k <= curl + 1; k++) g.set(x, 78 + k, z, c)
       }
-    g.box(-12, 12, 42, 48, -10, 9, c) // crown
-    for (const x of [-12, 11]) for (const z of [-10, 8]) g.box(x, x + 1, 42, 48, z, z + 1, null)
-    g.box(-12, 12, 47, 48, -10, 9, (x, y, z) => (x <= -11 || x >= 10 || z <= -9 || z >= 7 ? null : g.has(x, y, z) ? c : null))
-    g.box(-3, 3, 47, 48, -7, 6, null) // dent in the crown
-    g.box(-12, 12, 42, 43, -10, 9, (x, y, z) => (g.has(x, y, z) && x > -12 ? '#4a2c1d' : null))
+    g.rounded(-HW - 4, HW + 4, 79, HEAD1 + 12, -HD - 5, HD + 3, 6, c) // crown
+    g.rounded(-8, 8, HEAD1 + 10, HEAD1 + 12, -12, 8, 3, null)
+    g.box(-HW - 4, HW + 4, 80, 84, -HD - 5, HD + 3, (x, y, z) => (g.has(x, y, z) && Math.hypot((x + 0.5) / (HW + 4), (z + 1.5) / (HD + 4)) > 0.86 ? '#4a2c1d' : null)) // ribbon
   },
 }
 
 function backpack(g, B) {
   const c = '#d98b3a'
   const z0 = -B.td / 2
-  g.box(-5, 5, HIP + 1, SHOULDER - 1, z0 - 4, z0, c)
-  g.box(-3, 3, HIP + 2, HIP + 6, z0 - 5, z0 - 4, '#b96f28')
-  g.box(-5, 5, SHOULDER - 2, SHOULDER - 1, z0 - 4, z0, '#b96f28')
-  for (const x of [-4, 3]) {
-    g.box(x, x + 1, SHOULDER, SHOULDER + 1, z0, -z0, '#5a3a24')
-    g.box(x, x + 1, HIP + 3, SHOULDER, -z0, -z0 + 1, '#5a3a24')
+  g.rounded(-10, 10, HIP + 1, SHOULDER - 1, z0 - 9, z0, 3, c)
+  g.rounded(-7, 7, HIP + 2, HIP + 10, z0 - 11, z0 - 8, 2, '#b96f28')
+  g.box(-10, 10, SHOULDER - 5, SHOULDER - 4, z0 - 10, z0, (x, y, z) => (g.has(x, y, z) ? '#b96f28' : null))
+  for (const x of [-8, 6]) {
+    g.box(x, x + 2, SHOULDER, SHOULDER + 2, z0, -z0, '#5a3a24')
+    g.box(x, x + 2, HIP + 6, SHOULDER + 1, -z0, -z0 + 1, '#5a3a24')
   }
 }
 
 const HAND_ITEMS = {
   'filter-coffee'(p) {
-    p.box(-2, 3, 0, 2, -2, 3, STEEL) // davara
-    p.box(-1, 2, 2, 6, -1, 2, STEEL) // tumbler
-    p.set(0, 5, 0, '#7a4a2a')
-    p.set(0, 6, 0, '#a0714a')
+    p.rounded(-5, 6, 0, 4, -5, 6, 2, STEEL) // davara
+    p.rounded(-3, 4, 3, 13, -3, 4, 1.5, STEEL) // tumbler
+    p.box(-2, 3, 12, 13, -2, 3, '#a0714a') // frothy coffee
+    p.box(-1, 2, 12, 13, -1, 2, '#c8a07a')
   },
   controller(p) {
-    p.box(-3, 3, 0, 2, -1, 1, DARK)
-    for (const x of [-3, 2]) p.box(x, x + 1, -1, 0, -1, 1, DARK)
-    p.set(-2, 1, 1, WHITE)
-    p.set(1, 1, 1, '#e8b33c')
-    p.set(2, 0, 1, '#5aa0e0')
+    p.rounded(-7, 7, 0, 4, -2, 2, 1.5, DARK)
+    for (const x of [-7, 3]) p.rounded(x, x + 4, -4, 2, -2, 2, 1.5, DARK)
+    p.set(-4, 2, 2, WHITE)
+    p.set(-5, 2, 2, WHITE)
+    p.set(3, 3, 2, '#e8b33c')
+    p.set(4, 2, 2, '#5aa0e0')
+    p.set(2, 2, 2, '#d94a3a')
   },
   'cricket-bat'(p) {
-    p.box(0, 1, -4, 3, 0, 1, '#2b4b8a') // grip
-    p.box(-1, 2, -14, -4, 0, 1, '#ead29e')
-    p.box(-1, 2, -14, -13, 0, 1, '#d4b47a')
-    p.box(-1, 2, -6, -5, 0, 1, '#d94a3a') // sticker
+    p.box(0, 2, -8, 6, 0, 2, (x, y) => (mod(y, 3) ? '#2b4b8a' : '#e8edf5')) // grip
+    p.rounded(-2, 4, -30, -8, -1, 3, 1, '#ead29e')
+    p.box(-2, 4, -30, -28, -1, 3, '#d4b47a')
+    p.box(-1, 3, -13, -11, 3, 4, '#d94a3a') // sticker
   },
   flowers(p) {
-    p.box(0, 1, 0, 4, 0, 1, '#3e8f3e')
-    p.box(-1, 2, 1, 2, -1, 2, '#c8323a') // ribbon
+    for (const x of [-1, 0, 1]) p.box(x, x + 1, -2, 9, 0, 1, '#3e8f3e')
+    p.rounded(-2, 3, 1, 4, -2, 3, 1, '#c8323a') // ribbon
     for (const [x, y, z, c] of [
-      [-2, 4, -1, '#f08a24'],
-      [0, 5, 0, '#f5b52f'],
-      [1, 4, -1, '#f08a24'],
-      [-1, 6, -1, '#f5c242'],
-      [1, 6, 0, '#f08a24'],
+      [-3, 10, -1, '#f08a24'],
+      [0, 12, 0, '#f5b52f'],
+      [3, 10, -1, '#f08a24'],
+      [-1, 14, -2, '#f5c242'],
+      [2, 14, 1, '#f08a24'],
+      [0, 9, 2, '#f5c242'],
     ])
-      p.box(x, x + 2, y, y + 2, z, z + 2, c)
+      p.ellipsoid(x, y, z, 2.6, 2.4, 2.6, (xx, yy, zz) => (mod(xx + yy + zz, 3) ? c : '#e07a18'))
   },
   paintbrush(p) {
-    p.box(0, 1, -2, 5, 0, 1, '#b5462f')
-    p.box(0, 1, 5, 6, 0, 1, STEEL)
-    p.box(0, 1, 6, 8, 0, 1, '#3f7fd0')
-    p.set(0, 8, 0, '#2f5fb0')
+    p.box(0, 2, -4, 10, 0, 2, '#b5462f')
+    p.box(0, 2, 10, 12, 0, 2, STEEL)
+    p.rounded(0, 2, 12, 17, 0, 2, 0.8, '#3f7fd0')
   },
   'ice-cream'(p) {
-    p.box(0, 1, 0, 3, 0, 1, '#d9b98a')
-    p.box(-1, 2, 3, 8, -1, 1, '#f3d9a4')
-    p.box(-1, 2, 7, 8, -1, 1, '#e9a34a')
-    p.set(-1, 5, 0, '#7bb661')
-    p.set(1, 6, 0, '#7bb661')
+    p.box(0, 2, 0, 6, 0, 2, '#d9b98a') // stick
+    p.rounded(-2, 4, 5, 17, -2, 3, 2.5, (x, y) => (y < 3 ? '#e9a34a' : '#f3d9a4')) // kulfi
+    for (const [x, y] of [
+      [-2, 10],
+      [3, 12],
+      [0, 15],
+    ])
+      p.set(x, y, 2, '#7bb661') // pistachio bits
   },
   // things that are normally held in both hands, when only one is free
   laptop(p) {
-    p.box(0, 1, 0, 7, -4, 4, '#9aa1ab')
-    p.box(1, 2, 3, 4, -1, 1, WHITE)
+    p.rounded(0, 2, 0, 14, -8, 8, 1, '#9aa1ab')
+    p.box(2, 3, 6, 8, -1, 1, WHITE)
   },
   book(p) {
-    p.box(0, 2, 0, 7, -3, 3, '#b5462f')
-    p.box(0, 2, 1, 6, 2, 3, WHITE)
+    p.rounded(0, 4, 0, 14, -6, 6, 0.8, '#b5462f')
+    p.box(0, 4, 1, 13, 5, 6, WHITE)
   },
 }
 
 const CHEST_ITEMS = {
   laptop(p) {
-    p.box(-5, 5, 0, 1, -6, 0, '#7f8691')
-    p.box(-5, 5, 1, 8, -6, -5, '#9aa1ab')
-    p.box(-1, 1, 4, 6, -5, -4, WHITE)
+    p.rounded(-10, 10, 0, 2, -12, 0, 1, '#7f8691')
+    p.rounded(-10, 10, 1, 15, -12, -10, 1, '#9aa1ab')
+    p.box(-2, 2, 7, 10, -10, -9, WHITE)
   },
   book(p) {
-    p.box(-4, 4, -2, 5, 0, 1, '#b5462f')
-    p.box(-3, 3, 3, 4, 1, 2, shiny('#e8b33c'))
-    p.box(-1, 1, -2, 5, 0, 1, '#8e3220')
+    p.rounded(-8, 8, -4, 10, 0, 3, 0.8, '#b5462f')
+    p.box(-6, 6, 5, 7, 3, 4, shiny('#e8b33c'))
+    p.box(-1, 1, -4, 10, 0, 4, '#8e3220') // spine
   },
   camera(p) {
-    p.box(-3, 3, -2, 2, 0, 2, DARK)
-    p.box(-2, 2, -1, 2, 2, 3, '#555b66')
-    p.box(-1, 1, 0, 1, 3, 4, '#1a1d24')
-    p.set(2, 2, 1, '#d94a3a')
-    p.set(-3, 1, 1, WHITE)
+    p.rounded(-6, 6, -4, 4, 0, 4, 1.5, DARK)
+    p.rounded(-3, 3, 3, 6, 0, 4, 1, DARK)
+    p.ellipsoid(0, 0, 5, 3.4, 3.4, 2.2, '#555b66')
+    p.ellipsoid(0, 0, 6.5, 2, 2, 1, '#1a1d24')
+    p.set(4, 2, 4, '#d94a3a')
+    p.set(-5, 2, 4, WHITE)
   },
   controller(p) {
     HAND_ITEMS.controller(p)
@@ -253,58 +256,73 @@ const CHEST_ITEMS = {
 
 const GROUND_ITEMS = {
   plant(p) {
-    p.box(-3, 3, 0, 4, -3, 3, '#c4643a')
-    p.box(-4, 4, 3, 5, -4, 4, '#b4552e')
-    p.box(-3, 3, 4, 5, -3, 3, '#4a2e1f')
+    for (let y = 0; y < 8; y++) {
+      const r = 5 + y * 0.25
+      p.rounded(-Math.round(r), Math.round(r), y, y + 1, -Math.round(r), Math.round(r), 2, '#c4643a', true)
+    }
+    p.rounded(-8, 8, 7, 10, -8, 8, 2.5, '#b4552e', true)
+    p.box(-6, 6, 9, 10, -6, 6, '#4a2e1f')
     for (const [x, y, z, c] of [
-      [-2, 5, -2, '#3e8f3e'],
-      [0, 7, -1, '#5aa84f'],
-      [-3, 7, 0, '#4b9a45'],
-      [1, 5, 0, '#4b9a45'],
-      [-1, 9, -1, '#6fbf5a'],
+      [-3, 13, -2, '#3e8f3e'],
+      [2, 15, 1, '#5aa84f'],
+      [-4, 18, 1, '#4b9a45'],
+      [3, 12, -2, '#4b9a45'],
+      [0, 21, -1, '#6fbf5a'],
     ])
-      p.box(x, x + 3, y, y + 3, z, z + 3, c)
+      p.ellipsoid(x, y, z, 3.4, 3, 3.4, c)
   },
   cat(p) {
     const c = '#e39a52'
-    p.box(-2, 3, 0, 4, -2, 2, c)
-    p.box(-2, 3, 4, 8, -1, 3, c)
-    p.set(-2, 8, 0, c)
-    p.set(2, 8, 0, c)
-    p.set(-1, 6, 2, '#1c1c22')
-    p.set(1, 6, 2, '#1c1c22')
-    p.set(0, 5, 2, '#f08aa0')
-    p.box(3, 4, 0, 5, -2, -1, (x, y) => (mod(y, 2) ? c : '#c4782f'))
-    for (let y = 1; y < 4; y += 2) p.box(-2, 3, y, y + 1, -2, -1, '#c4782f')
+    const stripe = '#c4782f'
+    p.ellipsoid(0, 5, 0, 5, 5.5, 4.5, (x, y) => (mod(y, 3) === 0 ? stripe : c)) // body
+    p.ellipsoid(0, 13, 1.5, 5, 4.5, 4, c) // head
+    for (let k = 0; k < 3; k++) (p.box(-4, -1 - k, 16 + k, 17 + k, 0, 3, c), p.box(1 + k, 4, 16 + k, 17 + k, 0, 3, c)) // ears
+    p.set(-2, 13, 5, '#1c1c22')
+    p.set(1, 13, 5, '#1c1c22')
+    p.set(-1, 11, 5, '#f08aa0')
+    p.set(0, 11, 5, '#f08aa0')
+    for (let y = 1; y < 10; y++) p.box(4 + (y > 6 ? 1 : 0), 6 + (y > 6 ? 1 : 0), y, y + 1, -4, -2, mod(y, 3) ? c : stripe) // tail
   },
   dog(p) {
     const c = '#c9a074'
-    p.box(-2, 3, 0, 4, -3, 2, c)
-    p.box(-2, 3, 4, 8, -1, 3, c)
-    p.box(-1, 2, 4, 6, 3, 4, '#e8d2b0') // snout
-    p.set(0, 5, 4, '#1c1c22')
-    p.set(-1, 6, 3, '#1c1c22')
-    p.set(1, 6, 3, '#1c1c22')
-    for (const x of [-3, 3]) p.box(x, x + 1, 4, 8, 0, 2, '#8a6440')
-    p.box(0, 1, 2, 5, -4, -3, c)
+    p.ellipsoid(0, 5, -1, 5, 5.5, 5, c) // body
+    p.ellipsoid(0, 13, 1, 5, 4.5, 4.5, c) // head
+    p.rounded(-2, 2, 10, 13, 4, 8, 1, '#e8d2b0') // snout
+    p.set(-1, 12, 7, '#1c1c22')
+    p.set(0, 12, 7, '#1c1c22')
+    p.set(-3, 14, 5, '#1c1c22')
+    p.set(2, 14, 5, '#1c1c22')
+    for (const s of [-1, 1]) p.rounded(s > 0 ? 4 : -6, s > 0 ? 6 : -4, 8, 16, -1, 3, 1, '#8a6440') // floppy ears
+    p.rounded(-1, 1, 3, 9, -8, -5, 0.8, c) // tail
   },
   handbag(p) {
     const c = '#f2b632'
-    p.box(-3, 3, 0, 5, -2, 2, c)
-    p.box(-3, 3, 3, 5, 2, 3, '#d99a1f') // flap
-    p.set(0, 3, 3, WHITE)
-    p.box(-2, -1, 5, 8, 0, 1, c)
-    p.box(1, 2, 5, 8, 0, 1, c)
-    p.box(-2, 2, 8, 9, 0, 1, c)
+    p.rounded(-6, 6, 0, 10, -3, 3, 1.5, c)
+    p.rounded(-6, 6, 5, 10, 2, 4, 1, '#d99a1f') // flap
+    p.box(-1, 1, 5, 7, 4, 5, WHITE) // clasp
+    for (const x of [-4, 3]) p.box(x, x + 1, 10, 16, -1, 1, c) // handle
+    p.box(-4, 4, 16, 17, -1, 1, c)
+  },
+  // things put down for a dance or a cheer
+  laptop(p) {
+    p.rounded(-8, 8, 0, 2, -5, 6, 1, '#7f8691')
+    p.rounded(-8, 8, 1, 12, -6, -4, 1, '#9aa1ab')
+    p.box(-1, 1, 6, 8, -7, -6, WHITE)
+  },
+  book(p) {
+    p.rounded(-6, 6, 0, 3, -5, 5, 0.8, '#3f7fd0')
+    p.rounded(-5, 6, 3, 6, -4, 5, 0.8, '#b5462f')
+    p.box(-5, 6, 3, 6, 4, 5, WHITE)
   },
 }
 
 export function itemAt(g, id, mode, anchors, { L, B, side = -1 } = {}) {
+  const z1 = B.td / 2
   if (id === 'guitar-strap') {
     // a strap from the right hip over the left shoulder
-    for (let y = HIP; y < SHOULDER; y++) {
-      const x = Math.round(-B.tw / 2 + ((y - HIP) / (SHOULDER - HIP - 1)) * (B.tw - 1))
-      g.set(x, y, B.td / 2, '#4a2c1d')
+    for (let y = HIP; y < SHOULDER + 1; y++) {
+      const x = Math.round(-B.tw / 2 + ((y - HIP) / (SHOULDER - HIP)) * (B.tw - 2))
+      g.box(x, x + 2, y, y + 1, z1, z1 + 1, '#4a2c1d')
     }
     return
   }
@@ -316,29 +334,28 @@ export function itemAt(g, id, mode, anchors, { L, B, side = -1 } = {}) {
   }
   if (id === 'guitar') {
     if (mode === 'slung-back') {
-      guitar(at(g, [0, 15, -B.td / 2 - 1], { mx: true, mz: true }))
+      guitar(at(g, [0, 30, -z1 - 4], { mx: true, mz: true }))
       return itemAt(g, 'guitar-strap', mode, anchors, { L, B })
     }
-    const a = mode === 'chest' ? [1, 16, 5] : [1, 15, B.td / 2]
-    guitar(at(g, a))
+    guitar(at(g, mode === 'chest' ? [2, 32, z1 + 3] : [2, 30, z1]))
     if (mode === 'slung') itemAt(g, 'guitar-strap', mode, anchors, { L, B })
     return
   }
   if (mode === 'strap') {
-    CHEST_ITEMS.camera(at(g, [0, 15, B.td / 2]))
-    for (const x of [-3, 2]) g.box(x, x + 1, 17, SHOULDER, B.td / 2, B.td / 2 + 1, DARK)
+    CHEST_ITEMS.camera(at(g, [0, 30, z1]))
+    for (const x of [-5, 4]) g.box(x, x + 1, 33, SHOULDER + 1, z1, z1 + 1, DARK)
     return
   }
   if (mode === 'chest') {
     const fn = CHEST_ITEMS[id] || HAND_ITEMS[id]
-    return fn && fn(at(g, id === 'laptop' ? [0, 17, 7] : anchors.chest))
+    return fn && fn(at(g, anchors.chest))
   }
   if (mode === 'tuck') {
     const fn = HAND_ITEMS[id]
     return fn && fn(at(g, anchors.tuck, { mx: side < 0 }))
   }
-  if (mode === 'hand' || mode === 'clasp') {
+  if (mode === 'hand' || mode === 'clasp' || mode === 'up') {
     const fn = HAND_ITEMS[id]
-    return fn && fn(at(g, mode === 'clasp' ? anchors.clasp : anchors.hand))
+    return fn && fn(at(g, anchors[mode === 'clasp' ? 'clasp' : mode === 'up' ? 'up' : 'hand']))
   }
 }

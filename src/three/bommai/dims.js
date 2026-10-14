@@ -2,14 +2,17 @@ import * as THREE from 'three'
 
 // Shared measurements (in voxels) and helpers for the voxel Bommai.
 
-export const VOXEL = 0.022
+export const VOXEL = 0.011
 
 // heights, in voxels
-export const PED = 3 // pedestal
-export const HIP = 12
-export const SHOULDER = 22
-export const HEAD0 = 23 // head spans y 23..40, x -10..9, z -8..7
-export const HEAD1 = 41
+export const PED = 6 // pedestal
+export const HIP = 24
+export const SHOULDER = 44
+export const HEAD0 = 46 // head spans y 46..81, x -20..19, z -16..15
+export const HEAD1 = 82
+export const HW = 20 // head half-width
+export const HD = 16 // head half-depth
+export const FZ = HD - 1 // the front layer of the face
 
 const tmp = new THREE.Color()
 export function shade(hex, amt) {
