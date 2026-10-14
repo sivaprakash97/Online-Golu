@@ -14,6 +14,7 @@ const DARK_WOOD = '#5e2f1b'
 const CLOTH = '#f5ead3'
 const JASMINE = '#fbf6ea'
 const MARIGOLDS = ['#f6b928', '#f08a24', '#e8601c']
+const KOLAM = { line: '#cdb48c', maroon: '#6e1a26', peacock: '#13505a', leaf: '#2c5f34', centre: '#9a3f17' }
 const LEAF = ['#2f7d3d', '#4f9a44']
 
 // a touch of grain so big flat areas don't look like plastic
@@ -65,8 +66,8 @@ export function buildDiamond() {
 // ── floor ───────────────────────────────────────────────────────────────────
 export const FLOOR = { nx: 388, ny: 10, nz: 270 }
 
-// A kolam of coloured rice flour: petals in turmeric, kumkum and leaf green with white outlines,
-// and a ring of pulli dots. (dx, dz) is the voxel from its centre; returns a colour or null.
+// A kolam of coloured powder in deep, quiet colours (maroon, peacock, leaf green and rust, with
+// muted rice-flour outlines and a ring of pulli dots), so the yellow button over it stands out. (dx, dz) is the voxel from its centre; returns a colour or null.
 function kolam(dx, dz) {
   const r = Math.hypot(dx + 0.5, dz + 0.5)
   if (r > 31) return null
@@ -85,16 +86,16 @@ function kolam(dx, dz) {
   if (Math.abs(r - 29.5) < 1.3) {
     const sector = (Math.PI * 2) / 32
     const off = Math.abs(a - (Math.floor(a / sector) + 0.5) * sector) * r
-    return off < 1.2 ? JASMINE : null
+    return off < 1.2 ? KOLAM.line : null
   }
   if (r < 7) {
     const p = petal(8, 0.5, 6.5)
-    return p ? (p.edge ? '#f08a24' : JASMINE) : '#f08a24'
+    return p ? (p.edge ? KOLAM.centre : KOLAM.line) : KOLAM.centre
   }
   const inner = petal(8, 6, 17)
-  if (inner) return inner.edge ? JASMINE : '#3f9b4b'
+  if (inner) return inner.edge ? KOLAM.line : KOLAM.leaf
   const outer = petal(16, 12, 27)
-  if (outer) return outer.edge ? JASMINE : outer.i % 2 ? '#eab12f' : '#c8323a'
+  if (outer) return outer.edge ? KOLAM.line : outer.i % 2 ? KOLAM.peacock : KOLAM.maroon
   return null
 }
 

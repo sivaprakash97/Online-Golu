@@ -1,9 +1,11 @@
 import { useSyncExternalStore } from 'react'
 import trackUrl from '../assets/golu-bgm.mp3'
 
-// Background music. Browsers won't play sound until the visitor interacts, so it starts on the
-// first click, tap or key press and fades in. It loops without a gap (Web Audio, not <audio>), can
-// be muted (remembered on this device), and pauses while the tab is hidden.
+// Background music. It tries to start as soon as the page loads; browsers allow that only for
+// some visitors (in Chrome, people who already use this site; Safari and Firefox block it by
+// default), so otherwise it starts on the first click, tap or key press. Either way it fades in.
+// It loops without a gap (Web Audio, not <audio>), can be muted (remembered on this device), and
+// pauses while the tab is hidden.
 
 const KEY = 'golu-muted'
 const VOLUME = 0.35
@@ -20,6 +22,8 @@ let muted = (() => {
   }
 })()
 const listeners = new Set()
+// resume() is refused (not thrown) until the browser allows sound; that's expected
+const resume = () => ctx?.resume().catch(() => {})
 
 function fadeTo(v, secs) {
   if (!ctx) return
@@ -29,7 +33,8 @@ function fadeTo(v, secs) {
   gain.gain.linearRampToValueAtTime(v, t + secs)
 }
 
-// Must first be called from inside a user gesture, so the audio context is allowed to run.
+// Sets up the music. Outside a user gesture the audio context may start suspended; it is resumed
+// on the first interaction.
 function start() {
   if (started) return
   const AC = window.AudioContext || window.webkitAudioContext
@@ -67,23 +72,27 @@ export function setMuted(m) {
     return
   }
   start()
-  ctx?.resume()
+  resume()
   if (gain && gain.gain.value < VOLUME) fadeTo(VOLUME, 1.2)
 }
 
-// Start the music on the first interaction, unless the visitor muted it on an earlier visit.
+// Try to start the music right away (unless the visitor muted it on an earlier visit), and make
+// sure it is running after the first interaction if the browser held it back.
 export function armMusic() {
+  if (!muted) start()
   const go = () => {
     window.removeEventListener('pointerdown', go, true)
     window.removeEventListener('keydown', go, true)
-    if (!muted) start()
+    if (muted) return
+    start()
+    resume()
   }
   window.addEventListener('pointerdown', go, true)
   window.addEventListener('keydown', go, true)
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return
     if (document.hidden) ctx.suspend()
-    else if (!muted) ctx.resume()
+    else if (!muted) resume()
   })
 }
 
