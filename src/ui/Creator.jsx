@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import SoundToggle from './SoundToggle.jsx'
 import Bommai from '../three/bommai/Bommai.jsx'
 import { Cyl, Torus, GOLD } from '../three/prims.jsx'
 import { useThumb } from '../three/Thumbnails.jsx'
@@ -157,21 +158,9 @@ function Options({ cat, config, set }) {
   }
 }
 
-function PreviewBommai({ config, bump }) {
-  const ref = useRef()
-  const last = useRef({ bump, at: -10 })
-  useFrame(({ clock }) => {
-    const g = ref.current
-    if (!g) return
-    if (last.current.bump !== bump) last.current = { bump, at: clock.elapsedTime }
-    const t = clock.elapsedTime - last.current.at
-    const hop = t < 0.45 ? Math.sin((t / 0.45) * Math.PI) * 0.12 : 0
-    const sq = t < 0.6 ? Math.exp(-t * 8) * Math.sin(t * 30) * 0.06 : 0
-    g.position.y = 0.11 + hop
-    g.scale.set(1 + sq, 1 - sq, 1 + sq)
-  })
+function PreviewBommai({ config }) {
   return (
-    <group ref={ref}>
+    <group position={[0, 0.11, 0]}>
       <Bommai config={config} />
     </group>
   )
@@ -189,7 +178,7 @@ function Turntable() {
   )
 }
 
-function Preview({ config, bump }) {
+function Preview({ config }) {
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ fov: 30, position: [0.6, 1.0, 3.3] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, alpha: true }}>
       <hemisphereLight args={['#fff2dc', '#7a3a24', 0.9]} />
@@ -197,7 +186,7 @@ function Preview({ config, bump }) {
       <directionalLight position={[3, 1.5, -2]} intensity={0.9} color="#ffb98a" />
       <SoftEnv intensity={0.25} />
       <Turntable />
-      <PreviewBommai config={config} bump={bump} />
+      <PreviewBommai config={config} />
       <OrbitControls target={[0, 0.6, 0]} enablePan={false} enableZoom={false} minPolarAngle={1.0} maxPolarAngle={1.65} rotateSpeed={0.7} />
     </Canvas>
   )
@@ -206,11 +195,19 @@ function Preview({ config, bump }) {
 export default function Creator({ initial, onBack, onDone, count }) {
   const [config, setConfig] = useState(initial)
   const [cat, setCat] = useState('body')
-  const [bump, setBump] = useState(0)
-  const set = (patch) => {
-    setConfig((c) => ({ ...c, ...patch }))
-    setBump((b) => b + 1)
+  // the name tag is how friends find your Bommai, so it can't be left blank
+  const [needName, setNeedName] = useState(false)
+  const nameRef = useRef()
+  const place = () => {
+    const name = config.name.trim()
+    if (!name) {
+      setNeedName(true)
+      nameRef.current?.focus()
+      return
+    }
+    onDone({ ...config, name })
   }
+  const set = (patch) => setConfig((c) => ({ ...c, ...patch }))
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
   const gridRef = useRef()
   // braces matter: newer Chrome returns a Promise from scrollTo, and React would call it as the cleanup
@@ -230,6 +227,7 @@ export default function Creator({ initial, onBack, onDone, count }) {
         </div>
         <div className="creator-count">
           <b>{count}</b> already on the Golu
+          <SoundToggle className="is-compact" />
         </div>
       </header>
 
@@ -259,22 +257,35 @@ export default function Creator({ initial, onBack, onDone, count }) {
 
       <aside className="preview">
         <div className="preview-stage">
-          <Preview config={config} bump={bump} />
+          <Preview config={config} />
           <button className="btn-dice" onClick={() => set(randomConfig(config.name))} title="Surprise me">
             <span aria-hidden>🎲</span> Surprise me
           </button>
         </div>
-        <label className="name-field">
+        <label className={`name-field ${needName ? 'is-missing' : ''}`}>
           <span>Name on the tag</span>
           <input
+            ref={nameRef}
             value={config.name}
             maxLength={20}
             placeholder="Your name"
-            onChange={(e) => setConfig((c) => ({ ...c, name: e.target.value }))}
+            required
+            aria-invalid={needName}
+            aria-describedby={needName ? 'name-hint' : undefined}
+            onChange={(e) => {
+              const name = e.target.value
+              setConfig((c) => ({ ...c, name }))
+              if (name.trim()) setNeedName(false)
+            }}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           />
         </label>
-        <button className="btn-primary btn-place" onClick={() => onDone(config)}>
+        {needName && (
+          <p className="name-hint" id="name-hint" role="alert">
+            Add your name so friends can find your Bommai.
+          </p>
+        )}
+        <button className="btn-primary btn-place" onClick={place}>
           Place my Bommai <span aria-hidden>→</span>
         </button>
       </aside>

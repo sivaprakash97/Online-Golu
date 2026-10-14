@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
+import signboard from './assets/golu-signboard.png'
+import SoundToggle from './ui/SoundToggle.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep } from './data/options.js'
 import { addBommai, moveBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
@@ -237,28 +239,22 @@ export default function App() {
         {mode === 'home' && (
           <>
             <header className="hero">
-              <div className="brand">
-                <span className="brand-mark" aria-hidden>
-                  ❋
-                </span>
-                <h1>
-                  The Internet <em>Golu</em>
-                </h1>
-              </div>
-              <p className="tagline">Make a little Bommai. Add it to the Golu.</p>
-              <Counter n={count} live={live} />
+              {/* a festival signboard nailed to the top-left of the screen, so the title stays
+                  readable however far the camera moves into the Golu */}
+              <h1 className="signboard">
+                <img src={signboard} alt="Internet Golu. Create your own figurine, and add it to the Golu!" width="563" height="260" />
+              </h1>
             </header>
+            <div className="hud-count">
+              <Counter n={count} live={live} />
+            </div>
             <div className="cta-row">{mainCta}</div>
             <p className="explore-hint">
               {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is
             </p>
-            <div className="view-controls" role="group" aria-label="View">
-              <button onClick={() => camera('in')} aria-label="Zoom in" title="Zoom in">
-                +
-              </button>
-              <button onClick={() => camera('out')} aria-label="Zoom out" title="Zoom out">
-                −
-              </button>
+            {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
+            <div className="view-controls" role="group" aria-label="Music and view">
+              <SoundToggle />
               <button className="view-reset" onClick={resetView} aria-label="Reset view" title="Reset view">
                 ⟲ <span>Reset view</span>
               </button>
@@ -312,6 +308,12 @@ export default function App() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {(placing || mode === 'done') && (
+          <div className="view-controls" role="group" aria-label="Music">
+            <SoundToggle />
           </div>
         )}
 
