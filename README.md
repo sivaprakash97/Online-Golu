@@ -18,6 +18,10 @@ Without Supabase env vars the app runs on an in-memory store seeded with the dem
 
 `npm run build` makes a normal static build in `dist/`. `npm run build:single` inlines everything into one HTML file in `dist-single/` (used for quick shareable previews).
 
+## Demo video
+
+`npm run demo:video` records an ~11 second, 1920×1080 video of the core loop (the Golu opens → *Add your Bommai* → customise → *Place my Bommai* → drag it onto step 2) with the Golu music under it, into `golu-demo.mp4`. Run it against `npm run dev` **without** the Supabase env vars: it refuses to run against the shared Golu. Needs Playwright (`npm i -D playwright`) and ffmpeg; `--name`, `--out`, `--scale` and `--url` change the defaults. Software WebGL is too slow to record live, so the page runs on a virtual clock and is captured frame by frame (`scripts/demo-video/`); expect about 10 minutes.
+
 ## Hosting
 
 Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set. Every PR gets a preview deployment (visible to the Vercel account owner), and `main` deploys to production at the public `internet-golu` vercel.app domain.

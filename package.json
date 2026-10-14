@@ -6,7 +6,8 @@
     "build": "vite build",
     "build:single": "vite build --mode single",
     "preview": "vite preview",
-    "seed:sql": "node scripts/seed-sql.mjs > supabase/seed.sql"
+    "seed:sql": "node scripts/seed-sql.mjs > supabase/seed.sql",
+    "demo:video": "node scripts/demo-video/record.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
