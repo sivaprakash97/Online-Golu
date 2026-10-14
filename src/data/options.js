@@ -117,11 +117,6 @@ export const ACCESSORIES = [
   { id: 'paintbrush', label: 'Paintbrush', hold: 'hand' },
   { id: 'ice-cream', label: 'Kulfi', hold: 'hand' },
   { id: 'handbag', label: 'Handbag', hold: 'ground' },
-  { id: 'flower-crown', label: 'Rose crown', hold: 'head' },
-  { id: 'bear-hat', label: 'Bear hat', hold: 'head' },
-  { id: 'bunny-hat', label: 'Bunny hat', hold: 'head' },
-  { id: 'cat-hat', label: 'Cat hat', hold: 'head' },
-  { id: 'sun-hat', label: 'Sun hat', hold: 'head' },
 ]
 
 export const POSES = [

@@ -1,5 +1,5 @@
 import { shiny } from '../voxel/grid.js'
-import { HEAD1, HW, HD, SHOULDER, HIP, mod } from './dims.js'
+import { HEAD1, HW, SHOULDER, HIP, mod } from './dims.js'
 
 // Accessories as little voxel models. Each is drawn relative to an anchor (see buildBommai):
 // for things held in a hand the anchor is the top of the hand, for things held in front it is
@@ -50,21 +50,6 @@ function guitar(p) {
   for (const x of [22, 25]) (p.set(x, 4, 2, WHITE), p.set(x, -3, 2, WHITE))
 }
 
-function hat(g, { color, band, ears }) {
-  // wide enough to swallow the hair underneath
-  g.rounded(-HW - 4, HW + 4, 72, HEAD1 + 11, -HD - 4, HD + 4, 6, (x, y) => (y < 72 + 3 && band ? band : color))
-  // its own little face, high on the front
-  const z = HD + 3
-  for (const s of [-1, 1]) {
-    const x0 = s < 0 ? -11 : 7
-    g.box(x0, x0 + 4, 81, 85, z, z + 1, '#1c1c22')
-    g.set(x0 + 1, 84, z, WHITE)
-    g.box(s < 0 ? -16 : 12, s < 0 ? -12 : 16, 78, 80, z, z + 1, ears.cheek)
-  }
-  g.box(-2, 2, 79, 81, z, z + 1, '#1c1c22')
-  ears.draw(g)
-}
-
 const HEAD_ITEMS = {
   headphones(g) {
     const c = '#e8667a'
@@ -75,85 +60,6 @@ const HEAD_ITEMS = {
       g.rounded(x0, x0 + 5, 56, 70, -5, 6, 2.5, c)
       g.rounded(s < 0 ? x0 : x0 + 3, s < 0 ? x0 + 2 : x0 + 5, 59, 67, -2, 3, 1, '#c84a60')
     }
-  },
-  'flower-crown'(g) {
-    const rose = (x, y, z) => {
-      g.ellipsoid(x, y, z, 3.2, 3, 3.2, (xx, yy, zz) => (mod(xx + yy + zz, 3) ? '#d23a3a' : '#b52a30'))
-      g.ellipsoid(x, y + 0.5, z, 1.4, 1.6, 1.4, '#ef6a5e')
-    }
-    // a ring of roses and leaves round the head, just above the fringe
-    for (let a = 0; a < 16; a++) {
-      const t = (a / 16) * Math.PI * 2
-      const x = Math.cos(t) * (HW + 3)
-      const z = Math.sin(t) * (HD + 3)
-      if (a % 2) g.ellipsoid(x, 79, z, 2.6, 1.6, 2.6, '#3e8f3e')
-      else rose(x, 80, z)
-    }
-  },
-  'bear-hat'(g) {
-    const c = '#c98a5c'
-    hat(g, {
-      color: c,
-      band: '#a8693f',
-      ears: {
-        cheek: '#e58a7a',
-        draw(g) {
-          for (const s of [-1, 1]) {
-            g.ellipsoid(s * 15 - 0.5, HEAD1 + 11, -3, 5, 5, 3, c)
-            g.ellipsoid(s * 15 - 0.5, HEAD1 + 11, -1, 3, 3, 2, '#8e5634')
-          }
-        },
-      },
-    })
-  },
-  'bunny-hat'(g) {
-    const c = '#f7f4ef'
-    hat(g, {
-      color: c,
-      band: '#f08aa0',
-      ears: {
-        cheek: '#f6a3b4',
-        draw(g) {
-          g.rounded(-15, -7, HEAD1 + 8, HEAD1 + 30, -4, 2, 3.5, c)
-          g.rounded(-13, -9, HEAD1 + 11, HEAD1 + 28, 1, 3, 1.5, '#f08aa0')
-          // the other ear flops over
-          g.rounded(6, 14, HEAD1 + 8, HEAD1 + 18, -4, 2, 3.5, c)
-          g.rounded(13, 24, HEAD1 + 12, HEAD1 + 18, -4, 2, 3, c)
-          g.rounded(14, 22, HEAD1 + 13, HEAD1 + 17, 1, 3, 1.5, '#f08aa0')
-        },
-      },
-    })
-  },
-  'cat-hat'(g) {
-    const c = '#aeb0e6'
-    hat(g, {
-      color: c,
-      band: '#9294d2',
-      ears: {
-        cheek: '#8d86d8',
-        draw(g) {
-          for (const s of [-1, 1]) {
-            const x0 = s < 0 ? -20 : 8
-            for (let k = 0; k < 8; k++) g.box(x0 + k, x0 + 12 - k, HEAD1 + 10 + k, HEAD1 + 11 + k, -5, 1, c)
-            for (let k = 0; k < 5; k++) g.box(x0 + 3 + k, x0 + 9 - k, HEAD1 + 11 + k, HEAD1 + 12 + k, 1, 2, '#6a5fc0')
-          }
-        },
-      },
-    })
-  },
-  'sun-hat'(g) {
-    const c = '#f4f1ea'
-    for (let x = -34; x < 34; x++)
-      for (let z = -28; z < 26; z++) {
-        const e = ((x + 0.5) / 34) ** 2 + ((z + 1.5) / 27) ** 2
-        if (e > 1) continue
-        const ax = Math.abs(x + 0.5)
-        const curl = ax > 29 ? 3 : ax > 25 ? 1 : 0 // brim curls up at the sides
-        for (let k = 0; k <= curl + 1; k++) g.set(x, 78 + k, z, c)
-      }
-    g.rounded(-HW - 4, HW + 4, 79, HEAD1 + 12, -HD - 5, HD + 3, 6, c) // crown
-    g.rounded(-8, 8, HEAD1 + 10, HEAD1 + 12, -12, 8, 3, null)
-    g.box(-HW - 4, HW + 4, 80, 84, -HD - 5, HD + 3, (x, y, z) => (g.has(x, y, z) && Math.hypot((x + 0.5) / (HW + 4), (z + 1.5) / (HD + 4)) > 0.86 ? '#4a2c1d' : null)) // ribbon
   },
 }
 
