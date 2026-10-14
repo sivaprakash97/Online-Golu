@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import SoundToggle from './SoundToggle.jsx'
 import Bommai from '../three/bommai/Bommai.jsx'
 import { Cyl, Torus, GOLD } from '../three/prims.jsx'
 import { useThumb } from '../three/Thumbnails.jsx'
@@ -226,6 +227,7 @@ export default function Creator({ initial, onBack, onDone, count }) {
         </div>
         <div className="creator-count">
           <b>{count}</b> already on the Golu
+          <SoundToggle className="is-compact" />
         </div>
       </header>
 
