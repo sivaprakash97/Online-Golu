@@ -1,4 +1,4 @@
-import { LOOKUP } from '../../data/options.js'
+import { LOOKUP, pairColor } from '../../data/options.js'
 import { VoxelGrid, shiny } from '../voxel/grid.js'
 import { hairOn, faceOn } from './head.js'
 import { itemAt } from './items.js'
@@ -22,6 +22,11 @@ const WHITE = '#f6f1e8'
 
 // The main colour of a garment with its pattern woven in.
 function patterned(kind, base) {
+  if (kind === 'dots') {
+    // a light print of little dots, staggered
+    const dot = shade(base, 0.22)
+    return (x, y, z) => (mod(x + z + (mod(y, 8) < 4 ? 2 : 0), 4) === 0 && mod(y, 4) === 1 ? dot : base)
+  }
   if (kind !== 'butta') return () => base
   // little gold motifs, like silk-saree buttas: a five-voxel flower on a staggered 6×6 grid
   const gold = shiny(GOLD)
@@ -32,18 +37,17 @@ function patterned(kind, base) {
   }
 }
 
-const isWarm = (id) => ['turmeric', 'mustard', 'cream'].includes(id)
-
 export function resolveLook(cfg) {
   const o = LOOKUP.outfit[cfg.outfit]
   const main = LOOKUP.outfitColor[cfg.outfit_color].color
-  const contrast = isWarm(cfg.outfit_color) ? '#7a1f2b' : '#e3a83a'
+  // the second colour: the blouse and davani, a crop top, a belt
+  const pair = pairColor(cfg.outfit_color) || GOLD
   const L = {
     o,
     skin: LOOKUP.skin[cfg.skin_tone].color,
     hair: LOOKUP.hairColor[cfg.hair_color].color,
     main,
-    contrast,
+    pair,
     mainFn: patterned(o.pattern, main),
     accent: o.accent || shade(main, -0.15),
     pants: o.pants || shade(main, -0.2),
@@ -53,16 +57,25 @@ export function resolveLook(cfg) {
   }
   L.topFn = L.mainFn
   if (o.top === 'blouse') {
-    L.topFn = () => contrast
+    L.topFn = () => pair
+    L.sleeves = 'short'
+  }
+  if (o.top === 'crop') {
+    L.topFn = () => pair
+    L.sleeves = 'none'
+  }
+  if (o.top === 'jumpsuit') {
+    L.pants = main
     L.sleeves = 'short'
   }
   if (['tee', 'shirt'].includes(o.top) && o.id !== 'shirt-pants') L.sleeves = 'short'
   if (o.id === 'dress') L.sleeves = 'puff'
   if (o.bottom === 'dhoti') L.pants = '#f8f3e6'
-  L.drapeColor = o.drape === 'davani' ? contrast : o.drape === 'angavastram' ? '#f8f3e6' : o.drape === 'dupatta' ? shade(main, 0.16) : main
+  L.drapeColor = o.drape === 'davani' ? pair : o.drape === 'angavastram' ? '#f8f3e6' : o.drape === 'dupatta' ? shade(main, 0.16) : main
   // footwear follows the outfit
   if (['saree', 'skirt', 'dhoti'].includes(o.bottom) || ['kurta', 'salwar'].includes(o.id)) L.shoes = 'bare'
-  if (['tee-jeans', 'hoodie'].includes(o.id)) L.shoes = 'sneakers'
+  if (['tee-jeans', 'hoodie', 'crop-skirt'].includes(o.id)) L.shoes = 'sneakers'
+  if (o.id === 'jumpsuit') (L.shoes = 'flats'), (L.shoeColor = '#3a2a26')
   if (o.id === 'sherwani') L.shoeColor = '#c99a3a'
   if (o.id === 'dress') (L.shoes = 'flats'), (L.shoeColor = shade(main, -0.18))
   return L
@@ -153,7 +166,8 @@ function legs(g, L, B, pose) {
   ]) {
     g.rounded(x0, x1, PED + 2, HIP + 1, -3, 3, 1.5, c, true)
     if (L.o.id === 'tee-jeans') g.box(x0, x1, PED + 4, PED + 6, -3, 3, (x, y, z) => (Math.abs(z + 0.5) < 3 && (x === x0 || x === x1 - 1 || Math.abs(z + 0.5) > 2) ? shade(L.pants, 0.12) : null)) // rolled cuffs
-    if (L.o.bottom === 'pants' && L.o.id !== 'tee-jeans') g.box(x0, x1, PED + 4, PED + 5, -3, 3, (x, y, z) => (g.has(x, y, z) ? shade(L.pants, -0.08) : null))
+    if (L.o.id === 'jumpsuit') g.rounded(x0 - 1, x1 + 1, PED + 2, PED + 7, -4, 4, 1.5, L.pants, true) // wide legs
+    else if (L.o.bottom === 'pants' && L.o.id !== 'tee-jeans') g.box(x0, x1, PED + 4, PED + 5, -3, 3, (x, y, z) => (g.has(x, y, z) ? shade(L.pants, -0.08) : null))
     foot(g, L, x0, x1)
   }
 }
@@ -182,7 +196,7 @@ function lowerBody(g, L, B, pose) {
   const { bottom, id } = L.o
   const hz = B.td / 2
   if (pose === 'cross-legged') {
-    if (['saree', 'skirt', 'dhoti', 'dress'].includes(bottom)) lap(g, L, B)
+    if (['saree', 'skirt', 'dhoti', 'dress', 'maxi'].includes(bottom)) lap(g, L, B)
     return
   }
   if (pose === 'sitting') {
@@ -209,7 +223,7 @@ function lowerBody(g, L, B, pose) {
   if (bottom === 'skirt') {
     // pattu pavadai: a full skirt with a broad gold border
     flared(g, B, HIP, PED + 1, 3, L.mainFn)
-    flared(g, B, PED + 5, PED + 1, 3, (x, y) => (y === PED + 3 ? L.contrast : shiny(L.accent)), 6)
+    flared(g, B, PED + 5, PED + 1, 3, (x, y) => (y === PED + 3 ? L.pair : shiny(L.accent)), 6)
     flared(g, B, 14, 13, 3, shiny(L.accent), 3)
     return
   }
@@ -221,6 +235,13 @@ function lowerBody(g, L, B, pose) {
     // the front fold
     g.box(-2, 2, PED + 5, HIP - 1, hz + 1, hz + 2, shade(L.pants, -0.05))
     g.box(-2, 2, PED + 3, PED + 5, hz + 1, hz + 2, shiny(GOLD))
+    return
+  }
+  if (bottom === 'maxi') {
+    // a flowing printed skirt to the ankles, gathered at a waistband; no gold, it's not a pavadai
+    flared(g, B, HIP, PED + 3, 4, L.mainFn)
+    flared(g, B, HIP, HIP - 2, 4, shade(L.main, -0.12))
+    flared(g, B, PED + 5, PED + 3, 4, shade(L.main, -0.08), 4)
     return
   }
   if (bottom === 'dress') {
@@ -269,6 +290,22 @@ function torso(g, L, B, pose) {
       g.box(-w, w, y, y + 1, front - 1, z1, L.skin)
     }
     g.box(-x1, x1, HIP, HIP + 3, -z1, z1, (x, y, z) => (g.has(x, y, z) ? L.skin : null))
+  }
+  if (o.top === 'crop') {
+    // a sleeveless crop top with a square neck, tied in a little knot, and a bare midriff
+    g.box(-4, 4, SHOULDER - 3, SHOULDER + 1, front - 1, z1, L.skin)
+    g.box(-x1, x1, HIP, HIP + 5, -z1, z1, (x, y, z) => (g.has(x, y, z) ? L.skin : null))
+    g.box(-x1, x1, HIP + 5, HIP + 6, -z1, z1, (x, y, z) => (g.has(x, y, z) ? shade(L.pair, -0.06) : null))
+    g.ellipsoid(2.5, HIP + 5, z1 + 0.5, 2, 1.6, 1, shade(L.pair, -0.06))
+  }
+  if (o.top === 'jumpsuit') {
+    // a V neck, and a belt in the pair colour with a gold buckle
+    for (let y = SHOULDER - 7; y < SHOULDER + 1; y++) {
+      const w = Math.max(0, Math.floor((y - (SHOULDER - 7)) * 0.6))
+      g.box(-w - 1, w + 1, y, y + 1, front - 1, z1, L.skin)
+    }
+    g.box(-x1, x1, HIP, HIP + 2, -z1, z1, (x, y, z) => (g.has(x, y, z) ? L.pair : null))
+    g.box(-1, 1, HIP, HIP + 2, front, z1 + 1, shiny(GOLD))
   }
   if (o.top === 'tee') {
     g.box(-3, 3, SHOULDER - 2, SHOULDER + 1, front - 1, z1, L.skin) // crew neck
@@ -409,7 +446,7 @@ function arm(g, L, B, side, pose) {
   const half = B.tw / 2
   const X = (a, b) => (side > 0 ? [half + a, half + b] : [-half - b, -half - a])
   const color = (role) => (x, y, z) => {
-    if (role === 'hand') return L.skin
+    if (role === 'hand' || L.sleeves === 'none') return L.skin
     if (L.sleeves === 'short' || L.sleeves === 'puff') return role === 'upper' && y >= 38 ? L.topFn(x, y, z) : L.skin
     return L.topFn(x, y, z)
   }

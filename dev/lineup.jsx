@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import Bommai from '../src/three/bommai/Bommai.jsx'
 import SoftEnv from '../src/three/SoftEnv.jsx'
 import { SEED_BOMMAIS } from '../src/data/seed.js'
-import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, POSES } from '../src/data/options.js'
+import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES } from '../src/data/options.js'
 
 // Dev-only page (not part of the build): `npm run dev`, then open /dev/lineup.html.
 // Shows a row of Bommais under soft studio light, to judge the look of the dolls.
@@ -15,6 +15,7 @@ import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, POSES } from '../src
 //   ?set=faces           the eye styles and face extras
 //   ?set=items           every accessory
 //   ?set=hair            every hairstyle
+//   ?set=pairs           the two-tone outfits (saree, pavadai, crop top + skirt) in every colour
 //   ?only=3              just one of them, close up
 //   ?from=6&n=6          a few of them
 //   ?pick=1,4,7          just these ones
@@ -37,7 +38,11 @@ const q = new URLSearchParams(location.search)
 const ITEMS = ACCESSORIES.slice(1).map((a, i) => ({ ...look, name: a.label, accessory: a.id, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: i % 3 === 1 ? 'holding' : 'standing' }))
 // every hairstyle, from the front
 const HAIR = HAIR_STYLES.map((h, i) => ({ ...look, name: h.label, hair: h.id, outfit: ['kurta', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], skin_tone: ['wheat', 'honey', 'tan', 'brown'][i % 4], pose: 'standing' }))
-const SETS = { hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
+// every colour on the outfits that show its pair
+const PAIRS = OUTFIT_COLORS.flatMap((c, i) =>
+  ['silk-saree', 'pavadai', 'crop-skirt'].map((outfit) => ({ ...look, name: `${c.id} + ${c.pair}`, outfit, outfit_color: c.id, hair: ['braid', 'long-wavy', 'ponytail'][i % 3], pose: 'standing' })),
+)
+const SETS = { pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS
 const only = q.get('only')
 const from = +(q.get('from') || 0)
