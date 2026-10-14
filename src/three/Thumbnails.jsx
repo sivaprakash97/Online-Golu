@@ -10,8 +10,8 @@ const cache = new Map()
 
 const FRAMES = {
   full: { pos: [0.55, 0.68, 2.55], look: [0, 0.5, 0], rotY: -0.25 },
-  head: { pos: [0.35, 0.9, 1.25], look: [0, 0.8, 0], rotY: -0.35 },
-  hair: { pos: [1.08, 0.92, 1.48], look: [0, 0.72, -0.05], rotY: -0.6 },
+  head: { pos: [0.3, 0.8, 1.3], look: [0, 0.72, 0], rotY: -0.3 },
+  hair: { pos: [0.95, 0.82, 1.45], look: [0, 0.74, -0.05], rotY: -0.6 },
 }
 
 function Worker({ job, onDone }) {
