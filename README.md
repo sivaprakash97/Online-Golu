@@ -26,10 +26,11 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.
 - `src/data/options.js` is the whole customization catalog. A Bommai is just a set of option ids (body, skin_tone, hair, hair_color, outfit, outfit_color, face, face_extras, accessory, pose). Add an option there, and if it needs new geometry, one `case` in the matching renderer:
-  - `src/three/bommai/Hair.jsx`, `Face.jsx`, `Accessory.jsx`, and outfits/poses in `Bommai.jsx`.
+  - `src/three/bommai/head.js` (face pixel art, hair, hats), `body.js` (body, outfits, patterns), `items.js` (carried things), and poses in `Bommai.jsx`.
+- **Bommais are voxel chibi dolls.** Each part (head, body, arm, item, stand) is painted voxel by voxel into a `VoxelGrid` and turned into one mesh by `src/three/voxel/mesher.js`: greedy meshing, vertex colours and baked ambient occlusion, about 2,500 triangles per doll. Meshes are cached per look, so dolls that share a part share its geometry.
 - How an accessory is carried depends on the pose (`carryMode` in `src/three/bommai/Bommai.jsx`): held out in one hand, clasped between the palms for *Hands together*, tucked under an arm, hung from a strap, or slung on the back, so every accessory/pose pair makes sense.
 - **Desktop only for now:** screens narrower than 900px or shorter than 500px get a *Best on a computer* page (`src/ui/DesktopOnly.jsx`) instead of the 3D scene, with *Copy link* and *Open it anyway*.
-- All Bommais share one geometry/material cache (`src/three/prims.jsx`) so hundreds of them stay cheap.
+- The Golu set and decorations share one geometry/material cache (`src/three/prims.jsx`).
 - `src/three/golu/Golu.jsx` builds the Golu, the room and the decorations. `TRADITIONAL_SLOTS` lists the pieces on the locked steps 8 and 9; swap a slot's `piece` for the owner's own figurine component (for example a glTF model) without touching anything else.
 - `src/three/golu/layout.js` holds the step geometry and the **spots**. The Golu tapers (14.2 wide at the bottom, 0.6 narrower per step, 10.6 on the third row from the top) and each step's spots are evenly spaced, clustering in the middle on the upper steps. Rows without a spot get one centre-out in join order.
 - `src/three/DragLayer.jsx` is drag and drop: the doll hangs from the pointer by its head and swings like a pendulum, free spots glow, the one under the pointer swells, and dropping on steps 8–9 (or anywhere that isn't a free spot) floats it back. The top two steps show a *reserved for the deities and gods* message.
