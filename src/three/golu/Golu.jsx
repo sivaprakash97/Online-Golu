@@ -1,8 +1,11 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
+import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { GOLU } from './layout.js'
-import VoxelModel from '../voxel/VoxelModel.jsx'
-import { S, stepDims, buildStep, FLOOR, buildFloor, WALL, WALL_S, buildWall, buildPillar, BEAM, buildBeam, buildToran, buildGarlands, buildBanana } from './stage.js'
+import VoxelModel, { voxelGeometry } from '../voxel/VoxelModel.jsx'
+import { VOXEL_MATERIALS } from '../voxel/mesh.js'
+import { VOXEL } from '../bommai/dims.js'
+import { S, stepDims, buildStep, buildDiamond, FLOOR, buildFloor, WALL, WALL_S, buildWall, buildPillar, BEAM, buildBeam, buildToran, buildGarlands, buildBanana } from './stage.js'
 import { PIECES, Lamp } from '../traditional/Pieces.jsx'
 
 // The Golu and its room, drawn in voxels like the Bommais (see stage.js and traditional/pieces.js).
@@ -80,6 +83,33 @@ function TierHitZone({ k, state, onOver, onOut, onPick }) {
   )
 }
 
+// A sparse row of small gold diamonds along every riser (one instanced mesh for all nine steps).
+function RiserDiamonds() {
+  const geo = useMemo(() => voxelGeometry('riser-diamond', buildDiamond), [])
+  const spots = useMemo(() => {
+    const out = []
+    for (let k = 1; k <= GOLU.steps; k++) {
+      const W = GOLU.width(k)
+      const n = Math.round(W * 2.1)
+      for (let i = 0; i < n; i++) out.push([-W / 2 + 0.55 + (i * (W - 1.1)) / (n - 1), (k - 1) * H + H * 0.42 - 3.5 * VOXEL, GOLU.front(k)])
+    }
+    return out
+  }, [])
+  const setRef = (m) => {
+    if (!m || m.userData.placed) return
+    m.userData.placed = true
+    const o = new THREE.Object3D()
+    spots.forEach((p, i) => {
+      o.position.set(...p)
+      o.scale.setScalar(VOXEL)
+      o.updateMatrix()
+      m.setMatrixAt(i, o.matrix)
+    })
+    m.instanceMatrix.needsUpdate = true
+  }
+  return <instancedMesh ref={setRef} args={[geo, VOXEL_MATERIALS, spots.length]} />
+}
+
 // Marigold swags sway a little in the breeze.
 function Garlands({ z }) {
   const ref = useRef()
@@ -153,6 +183,7 @@ export default function Golu({ tierStates = {}, onTierOver, onTierOut, onTierPic
       {steps.map((k) => (
         <Step key={k} k={k} />
       ))}
+      <RiserDiamonds />
       <TraditionalPieces />
       {interactive &&
         steps.map((k) => <TierHitZone key={k} k={k} state={tierStates[k]} onOver={onTierOver} onOut={onTierOut} onPick={onTierPick} />)}

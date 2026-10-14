@@ -29,8 +29,11 @@ export function stepDims(k) {
   return { nx, nz, ny: STEP_H }
 }
 
-// One step: a wooden slab, a silk riser cloth with woven motifs and zari borders, a cream tread
-// cloth whose scalloped edge hangs over the riser, and dark end posts with gold finials.
+// One step, kept quiet so the Bommais stand out: a wooden slab with a cream tread cloth on top,
+// a plain silk riser with one thin gold band under the cloth and a gold line at the foot, and dark
+// end posts with little gold finials. Everything is painted flush onto the slab, so there are no
+// extra edges to catch the light. The small gold diamonds on the riser are too fine for these
+// voxels; see buildDiamond.
 // x runs across, z from the back (-nz/2) to the front (nz/2 - 1).
 export function buildStep(k) {
   const { nx, nz } = stepDims(k)
@@ -39,31 +42,23 @@ export function buildStep(k) {
   const g = new VoxelGrid(nx + 8, STEP_H + 4, nz + 8)
   const locked = k >= 8
   const riser = locked ? '#13505a' : ['#8e1f2e', '#a3283a'][k % 2]
-  const motif = shiny(locked ? '#e8c46a' : '#f0c35a')
+  const front = hz - 1
 
   g.box(-hx, hx, 0, STEP_H, -hz, hz, WOOD)
-  // tread cloth, with a thin red border line near the front edge
-  g.box(-hx + 3, hx - 3, STEP_H - 1, STEP_H, hz - TREAD, hz + 1, (x, y, z) => (z === hz - 3 ? '#c8323a' : CLOTH))
-  // riser cloth, one voxel proud of the wood
-  g.box(-hx + 3, hx - 3, 1, STEP_H - 2, hz, hz + 1, (x, y) => (y <= 1 || y === 7 || y === 8 ? GOLD : riser))
-  // the tread cloth's scalloped edge over the top of the riser
-  g.box(-hx + 3, hx - 3, STEP_H - 2, STEP_H - 1, hz, hz + 1, CLOTH)
-  for (let x = -hx + 3; x < hx - 3; x++) if (mod(x, 4) === 1 || mod(x, 4) === 2) g.set(x, STEP_H - 3, hz, CLOTH)
-  // woven diamond motifs along the riser
-  for (let cx = -hx + 8; cx < hx - 8; cx += 8)
-    for (const [dx, dy] of [
-      [0, 5],
-      [-1, 4],
-      [0, 4],
-      [1, 4],
-      [0, 3],
-    ])
-      g.set(cx + dx, dy, hz, motif)
-  // end posts with gold finials
+  g.box(-hx + 3, hx - 3, STEP_H - 1, STEP_H, hz - TREAD, hz, CLOTH) // tread cloth, its edge showing at the front
+  g.box(-hx + 3, hx - 3, 1, STEP_H - 1, front, hz, (x, y) => (y === 1 || y === STEP_H - 2 ? GOLD : riser))
   for (const x0 of [-hx, hx - 3]) {
-    g.box(x0, x0 + 3, 0, STEP_H + 1, hz - TREAD, hz + 1, DARK_WOOD)
-    g.box(x0, x0 + 3, STEP_H + 1, STEP_H + 3, hz - 2, hz + 1, GOLD)
+    g.box(x0, x0 + 3, 0, STEP_H + 1, hz - TREAD, hz, DARK_WOOD)
+    g.box(x0 + 1, x0 + 3, STEP_H + 1, STEP_H + 3, hz - 2, hz, GOLD)
   }
+  return g
+}
+
+// A small gold lozenge for the risers, in voxels as fine as the Bommais' (Golu.jsx scales it by
+// VOXEL and scatters it sparsely along every step).
+export function buildDiamond() {
+  const g = new VoxelGrid(8, 9, 4)
+  ;[1, 3, 3, 5, 3, 3, 1].forEach((w, y) => g.box(-(w >> 1), (w >> 1) + 1, y, y + 1, -1, 1, shiny('#f0c35a')))
   return g
 }
 
