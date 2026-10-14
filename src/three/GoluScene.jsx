@@ -8,6 +8,7 @@ import Bommai from './bommai/Bommai.jsx'
 import Petals from './Petals.jsx'
 import SoftEnv from './SoftEnv.jsx'
 import DragLayer from './DragLayer.jsx'
+import { MAX_DPR, PORTRAIT_ASPECT } from '../lib/device.js'
 
 const HELD = new THREE.Vector3(-2.8, 0.02, 2.0) // where your Bommai waits, on the floor in front of the Golu
 const DRAFT_SCALE = 1.25
@@ -20,7 +21,12 @@ function shotFor(name, aspect, focus) {
       return { pos: [-0.6, 4.3 * k, 11.4 * k], target: [0, 2.2, -2.4] }
     case 'focus': {
       const [x, y, z] = focus
-      return { pos: [x * 0.85, y + 1.5, z + 3.6], target: [x, y + 0.5, z] }
+      // an upright phone is narrow: stand further back (and look down a little more, over the
+      // Bommais in front) so the neighbours and the name tag still fit
+      const portrait = aspect < PORTRAIT_ASPECT
+      const m = portrait ? 1.9 : 1
+      const lift = portrait ? 1.5 : 1
+      return { pos: [x - 0.15 * x * m, y + 0.5 + lift * m, z + 3.6 * m], target: [x, y + 0.5, z] }
     }
     case 'home':
     default:
@@ -37,6 +43,9 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 // a real mouse wheel sends big whole-number steps; a trackpad sends small, fractional ones
 const isMouseWheel = (e) => e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY))
+
+// camera-controls (v2) actions, for the mouse buttons and touches below
+const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRUCK: 4096 }
 
 // Navigation (when `controlsEnabled`): drag to orbit within limits, two-finger scroll to pan,
 // pinch / ctrl+scroll / mouse wheel to zoom. `view` carries one-off commands from the UI:
@@ -158,17 +167,26 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
     <CameraControls
       ref={ref}
       makeDefault
-      mouseButtons={input ? { left: 1, middle: 2, right: 2, wheel: 0 } : { left: 0, middle: 0, right: 0, wheel: 0 }}
-      touches={input ? { one: 32, two: 1024, three: 0 } : { one: 0, two: 0, three: 0 }}
+      mouseButtons={
+        input
+          ? { left: ACTION.ROTATE, middle: ACTION.TRUCK, right: ACTION.TRUCK, wheel: ACTION.NONE }
+          : { left: ACTION.NONE, middle: ACTION.NONE, right: ACTION.NONE, wheel: ACTION.NONE }
+      }
+      touches={input ? { one: ACTION.TOUCH_ROTATE, two: ACTION.TOUCH_DOLLY_TRUCK, three: ACTION.NONE } : { one: ACTION.NONE, two: ACTION.NONE, three: ACTION.NONE }}
     />
   )
 }
+
+// On an upright phone the camera stands far back, so tags that shrink with distance would be
+// unreadable there: they keep one size instead, and sit above the head rather than over the doll.
+const usePortrait = () => useThree((s) => s.size.width / s.size.height < PORTRAIT_ASPECT)
 
 // Every Bommai glides to its layout slot, so when someone joins the step the others shuffle over.
 // `spawn` drives the arrival: 'pop' (first load), 'fly' (your placement), 'drop' (someone else, live).
 // `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still selects it.
 // The name tag shows only for the selected Bommai (yours says YOU), and never over the workshop.
 function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLanded }) {
+  const portrait = usePortrait()
   const ref = useRef()
   const inner = useRef()
   const st = useRef({ phase: spawn ? 'wait' : 'idle', start: null, from: null, landedAt: null })
@@ -258,10 +276,12 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
         <Bommai config={b} phaseKey={b.id} />
       </group>
       {showTag && (
-        <Html position={[0, 1.32, 0]} center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-          <div className={`nametag ${isMine ? 'mine' : ''}`}>
-            {isMine && <span className="nametag-you">YOU</span>}
-            {b.name || 'A friend'}
+        <Html position={[0, 1.32, 0]} center distanceFactor={portrait ? undefined : 9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+          <div className={portrait ? 'tag-above' : undefined}>
+            <div className={`nametag ${isMine ? 'mine' : ''}`}>
+              {isMine && <span className="nametag-you">YOU</span>}
+              {b.name || 'A friend'}
+            </div>
           </div>
         </Html>
       )}
@@ -271,6 +291,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
 
 // Your new Bommai waiting on the kolam: hops a little until you pick it up and drag it onto a step.
 function DraftOnKolam({ draft, onGrab }) {
+  const portrait = usePortrait()
   const ref = useRef()
   useFrame(({ clock }, dt) => {
     const g = ref.current
@@ -289,12 +310,18 @@ function DraftOnKolam({ draft, onGrab }) {
       onPointerDown={onGrab}
     >
       <Bommai config={draft} idle={false} />
-      <Html position={[0, 1.25, 0]} center distanceFactor={6} style={{ pointerEvents: 'none' }}>
-        <div className="nametag mine">
-          <span className="nametag-you">YOU</span>
-          {draft.name || 'Your Bommai'}
+      {/* a larger, invisible grab area: at the full view the doll is smaller than a fingertip */}
+      <mesh position={[0, 0.6, 0]} visible={false}>
+        <cylinderGeometry args={[0.6, 0.6, 1.4, 12]} />
+      </mesh>
+      <Html position={[0, 1.25, 0]} center distanceFactor={portrait ? undefined : 6} style={{ pointerEvents: 'none' }}>
+        <div className={portrait ? 'tag-above' : undefined}>
+          <div className="nametag mine">
+            <span className="nametag-you">YOU</span>
+            {draft.name || 'Your Bommai'}
+          </div>
+          <div className="grab-hint">Drag me onto a step</div>
         </div>
-        <div className="grab-hint">Drag me onto a step</div>
       </Html>
     </group>
   )
@@ -363,7 +390,7 @@ export default function GoluScene({
   return (
     <Canvas
       shadows
-      dpr={[1, 2]}
+      dpr={[1, MAX_DPR]}
       frameloop={paused ? 'never' : 'always'}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       camera={{ fov: 34, position: [0, 4.4, 14], near: 0.1, far: 80 }}
@@ -396,6 +423,7 @@ export default function GoluScene({
           ref={drag}
           bommais={bommais}
           showMarkers={placing}
+          lens={placing || mode === 'placing'}
           onDrop={onDropBommai}
           onReject={onReject}
           onDragChange={onDragChange}

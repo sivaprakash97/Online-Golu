@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import SoundToggle from './SoundToggle.jsx'
@@ -7,6 +7,7 @@ import Bommai from '../three/bommai/Bommai.jsx'
 import { Cyl, Torus, GOLD } from '../three/prims.jsx'
 import { useThumb } from '../three/Thumbnails.jsx'
 import SoftEnv from '../three/SoftEnv.jsx'
+import { MAX_DPR, PORTRAIT, useMedia } from '../lib/device.js'
 import {
   SKIN_TONES,
   BODIES,
@@ -178,24 +179,52 @@ function Turntable() {
   )
 }
 
-function Preview({ config }) {
+// The preview on a phone is small: it comes in a little closer ('near'), and on the Hair and Face
+// tabs it moves in on the head.
+const FRAMING = { full: { y: 0.6, dist: 3.378 }, near: { y: 0.62, dist: 2.9 }, head: { y: 0.78, dist: 2.1 } }
+
+function Framing({ framing }) {
+  const { camera, controls } = useThree()
+  const off = useMemo(() => new THREE.Vector3(), [])
+  useFrame((_, dt) => {
+    if (!controls) return
+    const f = FRAMING[framing]
+    off.copy(camera.position).sub(controls.target)
+    const d = off.length()
+    if (Math.abs(f.y - controls.target.y) < 1e-3 && Math.abs(f.dist - d) < 1e-3) return
+    const k = 1 - Math.exp(-dt * 6)
+    controls.target.y += (f.y - controls.target.y) * k
+    off.setLength(d + (f.dist - d) * k)
+    camera.position.copy(controls.target).add(off)
+    camera.lookAt(controls.target)
+  })
+  return null
+}
+
+function Preview({ config, framing = 'full' }) {
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ fov: 30, position: [0.6, 1.0, 3.3] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, alpha: true }}>
+    <Canvas shadows dpr={[1, MAX_DPR]} camera={{ fov: 30, position: [0.6, 1.0, 3.3] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, alpha: true }}>
       <hemisphereLight args={['#fff2dc', '#7a3a24', 0.9]} />
       <directionalLight position={[-2.5, 4, 3.5]} intensity={2.2} color="#ffe3bd" castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} shadow-normalBias={0.02} />
       <directionalLight position={[3, 1.5, -2]} intensity={0.9} color="#ffb98a" />
       <SoftEnv intensity={0.25} />
       <Turntable />
       <PreviewBommai config={config} />
-      <OrbitControls target={[0, 0.6, 0]} enablePan={false} enableZoom={false} minPolarAngle={1.0} maxPolarAngle={1.65} rotateSpeed={0.7} />
+      <OrbitControls makeDefault target={[0, 0.6, 0]} enablePan={false} enableZoom={false} minPolarAngle={1.0} maxPolarAngle={1.65} rotateSpeed={0.7} />
+      <Framing framing={framing} />
     </Canvas>
   )
 }
 
 // `editing`: changing a Bommai that is already on the Golu (its spot stays; the button saves).
+// On a phone held upright the workshop is one column (preview, tabs, options) and the name tag
+// gets its own screen after the styling, so the keyboard never covers the options.
 export default function Creator({ initial, onBack, onDone, count, editing = false }) {
   const [config, setConfig] = useState(initial)
   const [cat, setCat] = useState('body')
+  const portrait = useMedia(PORTRAIT)
+  const [step, setStep] = useState('style') // style | name (portrait only)
+  const naming = portrait && step === 'name'
   // the name tag is how friends find your Bommai, so it can't be left blank
   const [needName, setNeedName] = useState(false)
   const nameRef = useRef()
@@ -211,85 +240,121 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
   const set = (patch) => setConfig((c) => ({ ...c, ...patch }))
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
   const gridRef = useRef()
+  const railRef = useRef()
   // braces matter: newer Chrome returns a Promise from scrollTo, and React would call it as the cleanup
   useEffect(() => {
     gridRef.current?.scrollTo({ top: 0 })
-  }, [cat])
+    // the tabs scroll sideways on a phone: keep the open one in view
+    const rail = railRef.current
+    const on = rail?.querySelector('.is-on')
+    if (on && rail.scrollWidth > rail.clientWidth) {
+      rail.scrollTo({ left: on.offsetLeft - (rail.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' })
+    }
+  }, [cat, step])
 
   return (
-    <div className="creator">
+    <div className={`creator ${portrait ? 'is-portrait' : ''} ${naming ? 'is-naming' : ''}`}>
       <header className="creator-top">
-        <button className="btn-ghost" onClick={onBack}>
-          <span aria-hidden>←</span> Golu
+        <button className="btn-ghost" onClick={naming ? () => setStep('style') : onBack}>
+          <span aria-hidden>←</span> {naming ? 'Back' : 'Golu'}
         </button>
         <div className="creator-title">
           <span className="eyebrow">Bommai workshop</span>
-          <h2>{editing ? 'Edit your Bommai' : 'Make your Bommai'}</h2>
+          <h2>{naming ? 'Name your Bommai' : editing ? 'Edit your Bommai' : 'Make your Bommai'}</h2>
         </div>
         <div className="creator-count">
-          <b>{count}</b> already on the Golu
+          <span className="creator-count-text">
+            <b>{count}</b> already on the Golu
+          </span>
           <SoundToggle className="is-compact" />
         </div>
       </header>
 
-      <nav className="cat-rail" aria-label="Categories">
-        {CATEGORIES.map((c, i) => (
-          <button key={c.id} className={`cat ${cat === c.id ? 'is-on' : ''}`} onClick={() => setCat(c.id)}>
-            <span className="cat-num">{String(i + 1).padStart(2, '0')}</span>
-            <span className="cat-label">{c.label}</span>
-          </button>
-        ))}
-      </nav>
+      {!naming && (
+        <nav className="cat-rail" ref={railRef} aria-label="Categories">
+          {CATEGORIES.map((c, i) => (
+            <button key={c.id} className={`cat ${cat === c.id ? 'is-on' : ''}`} onClick={() => setCat(c.id)}>
+              <span className="cat-num">{String(i + 1).padStart(2, '0')}</span>
+              <span className="cat-label">{c.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
-      <main className="opt-panel" ref={gridRef}>
-        <div className="opt-head">
-          <span className="eyebrow">
-            {String(idx + 1).padStart(2, '0')} / {String(CATEGORIES.length).padStart(2, '0')}
-          </span>
-          <h3>{CATEGORIES[idx].label}</h3>
-        </div>
-        <Options cat={cat} config={config} set={set} />
-        {idx < CATEGORIES.length - 1 && (
-          <button className="btn-next" onClick={() => setCat(CATEGORIES[idx + 1].id)}>
-            Next: {CATEGORIES[idx + 1].label} →
-          </button>
-        )}
-      </main>
+      {!naming && (
+        <main className="opt-panel" ref={gridRef}>
+          <div className="opt-head">
+            <span className="eyebrow">
+              {String(idx + 1).padStart(2, '0')} / {String(CATEGORIES.length).padStart(2, '0')}
+            </span>
+            <h3>{CATEGORIES[idx].label}</h3>
+          </div>
+          <Options cat={cat} config={config} set={set} />
+          {idx < CATEGORIES.length - 1 && (
+            <button className="btn-next" onClick={() => setCat(CATEGORIES[idx + 1].id)}>
+              Next: {CATEGORIES[idx + 1].label} →
+            </button>
+          )}
+        </main>
+      )}
 
+      {/* stays mounted between the two phone steps, so the 3D preview isn't rebuilt */}
       <aside className="preview">
         <div className="preview-stage">
-          <Preview config={config} />
-          <button className="btn-dice" onClick={() => set(randomConfig(config.name))} title="Surprise me">
-            <span aria-hidden>🎲</span> Surprise me
-          </button>
+          <Preview config={config} framing={!portrait || naming ? 'full' : cat === 'hair' || cat === 'face' ? 'head' : 'near'} />
+          {naming ? (
+            <div className="preview-tag" aria-hidden>
+              <div className={`nametag mine ${config.name.trim() ? '' : 'is-empty'}`}>
+                <span className="nametag-you">YOU</span>
+                {config.name.trim() || 'Your name'}
+              </div>
+            </div>
+          ) : (
+            <button className="btn-dice" onClick={() => set(randomConfig(config.name))} title="Surprise me">
+              <span aria-hidden>🎲</span> Surprise me
+            </button>
+          )}
         </div>
-        <label className={`name-field ${needName ? 'is-missing' : ''}`}>
-          <span>Name on the tag</span>
-          <input
-            ref={nameRef}
-            value={config.name}
-            maxLength={20}
-            placeholder="Your name"
-            required
-            aria-invalid={needName}
-            aria-describedby={needName ? 'name-hint' : undefined}
-            onChange={(e) => {
-              const name = e.target.value
-              setConfig((c) => ({ ...c, name }))
-              if (name.trim()) setNeedName(false)
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-          />
-        </label>
-        {needName && (
-          <p className="name-hint" id="name-hint" role="alert">
-            Add your name so friends can find your Bommai.
-          </p>
+        {(!portrait || naming) && (
+          <>
+            <label className={`name-field ${needName ? 'is-missing' : ''}`}>
+              <span>Name on the tag</span>
+              <input
+                ref={nameRef}
+                value={config.name}
+                maxLength={20}
+                placeholder="Your name"
+                required
+                enterKeyHint="done"
+                aria-invalid={needName}
+                aria-describedby={needName ? 'name-hint' : undefined}
+                onChange={(e) => {
+                  const name = e.target.value
+                  setConfig((c) => ({ ...c, name }))
+                  if (name.trim()) setNeedName(false)
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              />
+            </label>
+            {needName && (
+              <p className="name-hint" id="name-hint" role="alert">
+                Add your name so friends can find your Bommai.
+              </p>
+            )}
+            <button className="btn-primary btn-place" onClick={place}>
+              {editing ? 'Save changes' : 'Place my Bommai'} <span aria-hidden>→</span>
+            </button>
+          </>
         )}
-        <button className="btn-primary btn-place" onClick={place}>
-          {editing ? 'Save changes' : 'Place my Bommai'} <span aria-hidden>→</span>
-        </button>
       </aside>
+
+      {portrait && !naming && (
+        <footer className="creator-foot">
+          <button className="btn-primary btn-place" onClick={() => setStep('name')}>
+            Done <span aria-hidden>→</span>
+          </button>
+        </footer>
+      )}
     </div>
   )
 }

@@ -12,6 +12,11 @@ import { normalizeConfig, spotsOnStep } from '../data/options.js'
 // store.subscribe(fn)           -> unsubscribe; fn(bommai) whenever anyone adds, moves or edits one
 // add/move reject with err.code: 'slot_taken' | 'step_full' | 'already_placed' | 'locked_step' | 'move_unavailable'
 // update rejects with err.code 'edit_unavailable' (not yours, or editing isn't switched on yet)
+//
+// ?sandbox in the URL: a practice Golu for running the whole flow again and again (and screen
+// recording it). It starts from the real Golu, but whatever you add, move or edit stays in this tab,
+// never reaches the database, and is gone when the page reloads.
+export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -44,8 +49,8 @@ function toRow(r) {
   }
 }
 
-function memoryStore() {
-  const rows = SEED_BOMMAIS.map(toRow)
+function memoryStore(seed = SEED_BOMMAIS.map(toRow)) {
+  const rows = [...seed]
   const subs = new Set()
   const check = (step, slot, id) => {
     if (!(step >= 1 && step <= 7)) throw placementError('locked_step', 'Only steps 1–7 are open to the community')
@@ -154,6 +159,34 @@ function supabaseStore() {
   return store
 }
 
+// The sandbox: a snapshot of the real Golu (or the sample one), with your changes kept in memory.
+// Others joining meanwhile don't drop in; only your own practice changes come through.
+function sandboxStore(base) {
+  let local = memoryStore([])
+  const sandbox = {
+    kind: 'sandbox',
+    live: false, // whether the snapshot came from the shared Golu
+    canMove: true,
+    async list() {
+      let rows
+      try {
+        rows = await base.list()
+        sandbox.live = base.kind === 'supabase'
+      } catch (e) {
+        console.warn('[golu] could not reach Supabase, the sandbox starts from the sample Golu', e)
+        rows = SEED_BOMMAIS.map(toRow)
+      }
+      local = memoryStore(rows)
+      return local.list()
+    },
+    add: (config, step, slot) => local.add(config, step, slot),
+    move: (id, step, slot) => local.move(id, step, slot),
+    update: (id, config) => local.update(id, config),
+    subscribe: (fn) => local.subscribe(fn),
+  }
+  return sandbox
+}
+
 let store
 try {
   store = URL && KEY ? supabaseStore() : memoryStore()
@@ -161,6 +194,7 @@ try {
   console.warn('[golu] Supabase unavailable, using in-memory store', e)
   store = memoryStore()
 }
+if (SANDBOX) store = sandboxStore(store)
 
 // If the network call to Supabase fails (e.g. inside a sandboxed preview), fall back once.
 export async function loadBommais() {
@@ -177,4 +211,6 @@ export const moveBommai = (id, step, slot) => store.move(id, step, slot)
 export const updateBommai = (id, config) => store.update(id, config)
 export const subscribeBommais = (fn) => store.subscribe(fn)
 export const storeKind = () => store.kind
+// the counter's live dot: Bommais are coming from the shared Golu
+export const isLive = () => store.kind === 'supabase' || !!store.live
 export const canMoveBommais = () => store.canMove

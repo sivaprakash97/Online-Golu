@@ -11,6 +11,12 @@ import { LOOKUP, OPEN_STEPS } from '../data/options.js'
 // hangs from the pointer by the top of its head and swings like a pendulum as it is carried.
 // Free spots glow; dropping on one lowers it onto the step, dropping on the traditional steps (8, 9)
 // or anywhere else floats it back to where it came from.
+// With `lens` (placing a new Bommai), holding the doll zooms the view in a little (GRAB_ZOOM) around
+// your finger, and while you carry it the zoomed view slides toward wherever your finger goes: drag to
+// the top right of the screen and the top right of the Golu comes into view. The point under your
+// finger is always the one that was there in the full view, so every spot stays in reach. It's a crop
+// of the same shot (camera.setViewOffset), so nothing shifts in perspective. After a good drop it
+// stays zoomed until `lens` turns off (the celebration is over); a tap or a missed drop zooms out.
 //   item: { key, kind: 'draft' | 'placed', id?, config, origin: [x, y, z] (base), scale }
 
 const HEAD_TOP = 1.0 // top of the head above the pedestal base, for an unscaled Bommai
@@ -20,6 +26,7 @@ const G = 9.8
 const ARM = 0.75 // pendulum length
 const MAX_SWING = 0.8 // radians; a flick swings it about 45° at most
 const MAX_ACC = 25
+const GRAB_ZOOM = 1.3
 const v3 = (a) => new THREE.Vector3(...a)
 
 const baseFor = (config, step, slot) => {
@@ -55,8 +62,8 @@ function ReservedGlow({ step }) {
   )
 }
 
-const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, onReject, onDragChange, onClickItem }, apiRef) {
-  const { camera, gl, controls } = useThree()
+const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, lens, onDrop, onReject, onDragChange, onClickItem }, apiRef) {
+  const { camera, gl, controls, size } = useThree()
   const [drag, setDrag] = useState(null) // the item being carried
   const [hover, setHover] = useState(null) // { step, slot } | { step, reserved } | { step, full }
   const grip = useRef()
@@ -66,7 +73,9 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
   const pointer = useRef({ x: 0, y: 0 })
   const ray = useMemo(() => new THREE.Raycaster(), [])
   const latest = useRef({})
-  latest.current = { bommais, onDrop, onReject, onDragChange, onClickItem, controls, hover }
+  latest.current = { bommais, onDrop, onReject, onDragChange, onClickItem, controls, hover, lens }
+  // the zoom while placing: `on` is what it's heading for, z the zoom now, (fx, fy) the finger (0..1)
+  const zoom = useRef({ on: false, z: 1, fx: 0.5, fy: 0.5 })
 
   const finish = () => {
     sim.current = null
@@ -121,6 +130,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
   const goBack = (s) => {
     s.phase = 'return'
     s.target = v3(s.item.origin).add(new THREE.Vector3(0, HEAD_TOP * s.item.scale + 0.4, 0))
+    zoom.current.on = false
   }
 
   useImperativeHandle(apiRef, () => ({
@@ -130,6 +140,14 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
       const sx = e.clientX
       const sy = e.clientY
       pointer.current = { x: sx, y: sy }
+      if (latest.current.lens) {
+        const rect = gl.domElement.getBoundingClientRect()
+        zoom.current.on = true
+        if (zoom.current.z < 1.001) {
+          zoom.current.fx = (sx - rect.left) / rect.width
+          zoom.current.fy = (sy - rect.top) / rect.height
+        }
+      }
       // hold the camera still from the first press, so grabbing a doll never nudges the view,
       // and tell the camera rig someone is interacting (stops the idle drift)
       if (latest.current.controls) {
@@ -150,6 +168,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
         window.removeEventListener('pointercancel', up)
         if (dragging) release()
         else {
+          zoom.current.on = false
           if (latest.current.controls) latest.current.controls.enabled = true
           latest.current.onClickItem?.(item)
         }
@@ -160,8 +179,46 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
     },
   }))
 
-  // never leave the camera locked if this unmounts mid-drag
-  useEffect(() => () => latest.current.controls && (latest.current.controls.enabled = true), [])
+  // never leave the camera locked (or zoomed) if this unmounts mid-drag
+  useEffect(
+    () => () => {
+      if (latest.current.controls) latest.current.controls.enabled = true
+      camera.clearViewOffset()
+    },
+    [camera],
+  )
+  useEffect(() => {
+    if (!lens) zoom.current.on = false
+  }, [lens])
+
+  useFrame((_, rawDt) => {
+    const L = zoom.current
+    const want = lens && L.on ? GRAB_ZOOM : 1
+    if (want === 1 && L.z === 1) return
+    const dt = Math.min(rawDt, 1 / 30)
+    if (L.on) {
+      // follow the finger, a touch behind it, like a camera operator
+      const rect = gl.domElement.getBoundingClientRect()
+      const fx = THREE.MathUtils.clamp((pointer.current.x - rect.left) / rect.width, 0, 1)
+      const fy = THREE.MathUtils.clamp((pointer.current.y - rect.top) / rect.height, 0, 1)
+      const f = 1 - Math.exp(-dt * 10)
+      L.fx += (fx - L.fx) * f
+      L.fy += (fy - L.fy) * f
+    }
+    L.z += (want - L.z) * (1 - Math.exp(-dt * 7))
+    if (Math.abs(want - L.z) < 0.002) L.z = want
+    if (L.z === 1) {
+      camera.clearViewOffset()
+      return
+    }
+    // a window 1/z the size of the full view, placed so the finger's point stays where it was
+    const { width: W, height: H } = size
+    const w = W / L.z
+    const h = H / L.z
+    const cx = 0.5 + (L.fx - 0.5) * (1 - 1 / L.z)
+    const cy = 0.5 + (L.fy - 0.5) * (1 - 1 / L.z)
+    camera.setViewOffset(W, H, cx * W - w / 2, cy * H - h / 2, w, h)
+  })
 
   const ndc = new THREE.Vector2()
   const tmp = new THREE.Vector3()
@@ -171,6 +228,10 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
     const s = sim.current
     if (!s || !grip.current) return
     const dt = Math.min(rawDt, 1 / 30)
+    // the controls are switched off while carrying (so the view doesn't orbit), and drei only ticks
+    // switched-on controls: let the camera finish any glide it was in the middle of
+    const c = latest.current.controls
+    if (c && !c.enabled) c.update(dt)
 
     if (s.phase === 'carry') {
       const rect = gl.domElement.getBoundingClientRect()
