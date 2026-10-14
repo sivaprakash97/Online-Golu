@@ -260,6 +260,8 @@ export default function App() {
             tagId={tagId}
             onPickBommai={(b) => {
               setTagId(b ? b.id : null)
+              // clicking your own Bommai does what "Find my Bommai" does: the camera comes in to it
+              if (b && myIds.includes(b.id)) setFocusId(b.id)
             }}
             celebrate={celebrate}
             paused={mode === 'create' || mode === 'edit'}

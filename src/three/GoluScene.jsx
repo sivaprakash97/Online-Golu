@@ -166,7 +166,8 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
 
 // Every Bommai glides to its layout slot, so when someone joins the step the others shuffle over.
 // `spawn` drives the arrival: 'pop' (first load), 'fly' (your placement), 'drop' (someone else, live).
-// `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still shows the name tag.
+// `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still selects it.
+// The name tag shows only for the selected Bommai (yours says YOU), and never over the workshop.
 function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLanded }) {
   const ref = useRef()
   const inner = useRef()
@@ -256,7 +257,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
       >
         <Bommai config={b} phaseKey={b.id} />
       </group>
-      {(showTag || isMine) && (
+      {showTag && (
         <Html position={[0, 1.32, 0]} center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div className={`nametag ${isMine ? 'mine' : ''}`}>
             {isMine && <span className="nametag-you">YOU</span>}
@@ -384,7 +385,7 @@ export default function GoluScene({
               target={t}
               spawn={settled.current.has(b.id) ? undefined : spawns[b.id]}
               isMine={mine}
-              showTag={tagId === b.id}
+              showTag={tagId === b.id && !paused}
               onPick={exploring ? onPickBommai : null}
               onGrab={exploring && mine && canMove ? grabPlaced : null}
             />
