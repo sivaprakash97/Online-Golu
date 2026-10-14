@@ -50,16 +50,16 @@ export function faceOn(g, cfg, L) {
   eye(g, -7, right, false)
   eye(g, 3, left, true)
 
-  // cheeks, nose and a small open smile
-  const blush = ex.includes('blush') ? '#ea6f6c' : BLUSH
-  const bw = ex.includes('blush') ? 4 : 3
-  g.box(-5 - bw, -5, 26, 28, FZ, FZ + 1, null)
-  for (let y = 26; y < 28; y++)
-    for (let i = 0; i < bw; i++) {
-      g.paint(-5 - bw + i, y, FZ, blush)
-      g.paint(5 + i, y, FZ, blush)
-    }
-  for (let y = 26; y < 28; y++) for (const x of [-10, 9]) g.paint(x, y, FZ - 1, blush) // wraps a little round the side
+  // cheeks only when "Rosy cheeks" is picked; nose and a small open smile always
+  if (ex.includes('blush')) {
+    const bw = 3
+    for (let y = 26; y < 28; y++)
+      for (let i = 0; i < bw; i++) {
+        g.paint(-5 - bw + i, y, FZ, BLUSH)
+        g.paint(5 + i, y, FZ, BLUSH)
+      }
+    for (let y = 26; y < 28; y++) for (const x of [-10, 9]) g.paint(x, y, FZ - 1, BLUSH) // wraps a little round the side
+  }
   g.set(-1, 28, FZ + 1, shade(L.skin, -0.04))
   g.set(0, 28, FZ + 1, shade(L.skin, -0.04))
   for (let x = -2; x < 2; x++) g.paint(x, 26, FZ, '#7c1d22')
