@@ -397,8 +397,8 @@ export function itemAt(g, id, mode, anchors, { L, B, side = -1 } = {}) {
     const fn = SIDE_ITEMS[id]
     return fn && fn(at(g, anchors.tuck, { mx: side < 0 }))
   }
-  if (mode === 'hand' || mode === 'clasp' || mode === 'up') {
+  if (mode === 'lean' || mode === 'clasp' || mode === 'up') {
     const fn = HAND_ITEMS[id]
-    return fn && fn(at(g, anchors[mode === 'clasp' ? 'clasp' : mode === 'up' ? 'up' : 'hand']))
+    return fn && fn(at(g, anchors[mode]))
   }
 }

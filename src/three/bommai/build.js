@@ -364,12 +364,6 @@ function armPoses(out) {
       [0, 5, 30, 35, -1, 12, 'fore'],
       [0, 5, 29, 35, 11, 15, 'hand'],
     ],
-    // holding something up beside the face, the forearm turned a little outward
-    offer: [
-      [0, 5, 33, 44, -2, 3, 'upper'],
-      [1, 7, 30, 35, -1, 9, 'fore'],
-      [4, 10, 29, 35, 7, 12, 'hand'],
-    ],
     // seated, hands resting on the knees
     lap: [
       [0, 5, 34, 44, -2, 3, 'upper'],
@@ -445,7 +439,9 @@ export function carryMode(acc, pose) {
   const seated = pose === 'holding' || pose === 'sitting' || pose === 'cross-legged'
   if (acc.hold === 'hand') {
     if (pose === 'namaste') return 'ground' // set down as an offering; the palms are together
-    return armsUp ? 'up' : 'hand'
+    // a bat rests on the floor in a hanging hand; anything else is held up high, clear of the head
+    if (acc.id === 'cricket-bat') return FREE_HAND.includes(pose) || pose === 'holding' ? 'lean' : 'ground'
+    return 'up'
   }
   if (acc.hold === 'side') return FREE_HAND.includes(pose) ? 'tuck' : 'ground'
   if (acc.id === 'veena') return seated ? 'chest' : 'ground'
@@ -453,7 +449,7 @@ export function carryMode(acc, pose) {
     if (seated) return 'chest'
     if (acc.id === 'guitar') return pose === 'namaste' || armsUp ? 'slung-back' : 'slung'
     if (acc.id === 'camera') return 'strap'
-    if (acc.id === 'controller' || (armsUp && acc.id === 'book')) return pose === 'namaste' ? 'clasp' : armsUp ? 'up' : 'hand'
+    if (acc.id === 'controller' || (armsUp && acc.id === 'book')) return pose === 'namaste' ? 'clasp' : 'up'
     if (armsUp || pose === 'namaste') return 'ground'
     return 'tuck'
   }
@@ -504,7 +500,7 @@ export function buildBommai(cfg) {
   hairOn(head, cfg, L, { hatted: HATS.includes(cfg.accessory) })
 
   const anchors = {
-    hand: [handSide > 0 ? half + 7 : -half - 8, 35, 9],
+    lean: [handSide > 0 ? half + 2 : -half - 3, 30, 0],
     up: [handSide > 0 ? half + reach(B) + 5 : -half - reach(B) - 6, 63, 0],
     clasp: [0, 45, z1 + 3],
     chest: [0, 34, 16],
@@ -514,19 +510,20 @@ export function buildBommai(cfg) {
     ground: [34, 0, 2],
   }
   if (mode) {
-    const target = mode === 'ground' ? floor : mode === 'head' ? (acc.id === 'cloud' ? part('float', [0, 0, 0]) : head) : ['up', 'hand', 'tuck'].includes(mode) ? arms[handSide] : upper
+    const target = mode === 'ground' ? floor : mode === 'head' ? (acc.id === 'cloud' ? part('float', [0, 0, 0]) : head) : ['up', 'lean', 'tuck'].includes(mode) ? arms[handSide] : upper
     itemAt(target, acc.id, mode, anchors, { L, B, side: handSide })
   }
 
   const armPose = (side) => {
     if (pose === 'namaste') return 'namaste'
-    if (mode === 'hand' && side === handSide) return 'offer'
+    if (side === handSide && mode === 'up') return 'up'
+    if (side === handSide && (mode === 'lean' || mode === 'tuck')) return 'down'
     if (pose === 'holding') return 'forward'
     if (pose === 'sitting' || pose === 'cross-legged') return mode === 'chest' ? 'forward' : 'lap'
     if (pose === 'cheering') return 'up'
     if (pose === 'dancing') return side === handSide ? 'up' : 'out'
     if (pose === 'waving' && side < 0) return 'raised'
-    if (pose === 'hips') return mode === 'tuck' && side === handSide ? 'down' : 'hips'
+    if (pose === 'hips') return 'hips'
     return 'down'
   }
   arm(arms[1], L, B, 1, armPose(1))
