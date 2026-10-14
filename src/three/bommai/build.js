@@ -178,7 +178,7 @@ function lap(g, L, B) {
   g.rounded(-w, w, PED, PED + 9, -B.td / 2 - 3, 12, 3.5, (x, y, z) => (y < PED + 2 ? border : c(x, y, z)))
 }
 
-function lower(g, L, B, pose) {
+function lowerBody(g, L, B, pose) {
   const { bottom, id } = L.o
   const hz = B.td / 2
   if (pose === 'cross-legged') {
@@ -364,6 +364,12 @@ function armPoses(out) {
       [0, 5, 30, 35, -1, 12, 'fore'],
       [0, 5, 29, 35, 11, 15, 'hand'],
     ],
+    // holding something up beside the face, the forearm turned a little outward
+    offer: [
+      [0, 5, 33, 44, -2, 3, 'upper'],
+      [1, 7, 30, 35, -1, 9, 'fore'],
+      [4, 10, 29, 35, 7, 12, 'hand'],
+    ],
     // seated, hands resting on the knees
     lap: [
       [0, 5, 34, 44, -2, 3, 'upper'],
@@ -432,80 +438,101 @@ function arm(g, L, B, side, pose) {
 }
 
 // How an accessory is carried depends on the pose, so the two always make sense together.
+const FREE_HAND = ['standing', 'waving', 'hips']
 export function carryMode(acc, pose) {
   if (!acc || acc.id === 'none') return null
   const armsUp = pose === 'cheering' || pose === 'dancing'
+  const seated = pose === 'holding' || pose === 'sitting' || pose === 'cross-legged'
   if (acc.hold === 'hand') {
-    if (pose === 'namaste') return 'clasp'
+    if (pose === 'namaste') return 'ground' // set down as an offering; the palms are together
     return armsUp ? 'up' : 'hand'
   }
+  if (acc.hold === 'side') return FREE_HAND.includes(pose) ? 'tuck' : 'ground'
+  if (acc.id === 'veena') return seated ? 'chest' : 'ground'
   if (acc.hold === 'both') {
-    if (pose === 'holding' || pose === 'sitting' || pose === 'cross-legged') return 'chest'
+    if (seated) return 'chest'
     if (acc.id === 'guitar') return pose === 'namaste' || armsUp ? 'slung-back' : 'slung'
     if (acc.id === 'camera') return 'strap'
     if (acc.id === 'controller' || (armsUp && acc.id === 'book')) return pose === 'namaste' ? 'clasp' : armsUp ? 'up' : 'hand'
-    if (armsUp) return 'ground'
+    if (armsUp || pose === 'namaste') return 'ground'
     return 'tuck'
   }
   return acc.hold
 }
 
-// Returns { body, wave } VoxelGrids; `wave` is the waving forearm (or null) with its elbow pivot.
+const HATS = ['cap', 'beanie', 'fedora']
+
+// Returns { body, parts }: `body` is the doll and its pedestal; each part is a piece that moves
+// on its own ({ grid, anim, pivot, side }): the waving forearm, a nodding head, cheering arms, the
+// upper body swaying on its hips, the whole dancing doll, or a cloud floating overhead.
 export function buildBommai(cfg) {
   const L = resolveLook(cfg)
   const B = BUILDS[cfg.body] || BUILDS.regular
-  const floor = new VoxelGrid()
+  const half = B.tw / 2
+  const z1 = B.td / 2
   const pose = cfg.pose
   const acc = LOOKUP.accessory[cfg.accessory]
   const mode = carryMode(acc, pose)
   const handSide = pose === 'waving' ? 1 : -1 // the doll's right hand unless it is waving with it
-  // sitting on the floor lowers everything above the hips
-  const g = pose === 'cross-legged' ? floor.shifted(-(HIP - (PED + 9))) : floor
+
+  const floor = new VoxelGrid()
+  const parts = []
+  const part = (anim, pivot, extra = {}) => {
+    const grid = new VoxelGrid()
+    parts.push({ grid, anim, pivot, ...extra })
+    return grid
+  }
+  // which grid each piece of the doll is drawn into
+  let lower = floor
+  let upper = floor
+  let head = floor
+  if (pose === 'dancing') lower = upper = head = part('dance', [0, PED, 0])
+  if (pose === 'hips') upper = head = part('hips', [0, HIP, 0])
+  if (pose === 'namaste') head = part('nod', [0, HEAD0, 0])
+  if (pose === 'cross-legged') upper = head = floor.shifted(-(HIP - (PED + 9))) // sitting on the floor lowers everything above the hips
+  const arms = { 1: upper, '-1': upper }
+  if (pose === 'cheering') for (const s of [1, -1]) arms[s] = part('cheer', [s > 0 ? half + 2.5 : -half - 2.5, 41, 0.5], { side: s })
 
   pedestal(floor)
-  legs(floor, L, B, pose)
-  lower(floor, L, B, pose)
-  torso(g, L, B, pose)
+  legs(lower, L, B, pose)
+  lowerBody(lower, L, B, pose)
+  torso(upper, L, B, pose)
 
   // head: a big box with softly rounded edges
-  g.rounded(-HW, HW, HEAD0, HEAD1, -HD, HD, 4, L.skin)
-  faceOn(g, cfg, L)
-  hairOn(g, cfg, L)
+  head.rounded(-HW, HW, HEAD0, HEAD1, -HD, HD, 4, L.skin)
+  faceOn(head, cfg, L)
+  hairOn(head, cfg, L, { hatted: HATS.includes(cfg.accessory) })
 
-  const half = B.tw / 2
-  const z1 = B.td / 2
   const anchors = {
-    hand: [handSide > 0 ? half + 2 : -half - 3, 35, 13],
+    hand: [handSide > 0 ? half + 7 : -half - 8, 35, 9],
     up: [handSide > 0 ? half + reach(B) + 5 : -half - reach(B) - 6, 63, 0],
     clasp: [0, 45, z1 + 3],
     chest: [0, 34, 16],
     strap: [0, 30, z1],
     slung: [0, 28, z1],
-    tuck: [handSide > 0 ? half + 6 : -half - 7, 26, 0],
+    tuck: [handSide > 0 ? half + 4 : -half - 4, 24, 0],
     ground: [34, 0, 2],
   }
-  if (mode) itemAt(mode === 'ground' ? floor : g, acc.id, mode, anchors, { L, B, side: handSide })
+  if (mode) {
+    const target = mode === 'ground' ? floor : mode === 'head' ? (acc.id === 'cloud' ? part('float', [0, 0, 0]) : head) : ['up', 'hand', 'tuck'].includes(mode) ? arms[handSide] : upper
+    itemAt(target, acc.id, mode, anchors, { L, B, side: handSide })
+  }
 
   const armPose = (side) => {
     if (pose === 'namaste') return 'namaste'
+    if (mode === 'hand' && side === handSide) return 'offer'
     if (pose === 'holding') return 'forward'
-    if (pose === 'sitting' || pose === 'cross-legged') return mode === 'chest' || (mode === 'hand' && side === handSide) ? 'forward' : 'lap'
+    if (pose === 'sitting' || pose === 'cross-legged') return mode === 'chest' ? 'forward' : 'lap'
     if (pose === 'cheering') return 'up'
     if (pose === 'dancing') return side === handSide ? 'up' : 'out'
     if (pose === 'waving' && side < 0) return 'raised'
-    if (mode === 'hand' && side === handSide) return 'forward'
     if (pose === 'hips') return mode === 'tuck' && side === handSide ? 'down' : 'hips'
     return 'down'
   }
-  arm(g, L, B, 1, armPose(1))
-  arm(g, L, B, -1, armPose(-1))
-  if (mode === 'chest' && acc.id === 'guitar') itemAt(g, 'guitar-strap', mode, anchors, { L, B })
+  arm(arms[1], L, B, 1, armPose(1))
+  arm(arms[-1], L, B, -1, armPose(-1))
+  if (mode === 'chest' && acc.id === 'guitar') itemAt(upper, 'guitar-strap', mode, anchors, { L, B })
 
-  let wave = null
-  if (pose === 'waving') {
-    const w = new VoxelGrid(112, 128, 16)
-    arm(w, L, B, -1, 'forearmUp')
-    wave = { grid: w, pivot: [-half - reach(B) - 2.5, 41, 0.5] }
-  }
-  return { body: floor, wave }
+  if (pose === 'waving') arm(part('wave', [-half - reach(B) - 2.5, 41, 0.5]), L, B, -1, 'forearmUp')
+  return { body: floor, parts }
 }

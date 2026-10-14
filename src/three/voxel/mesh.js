@@ -159,8 +159,8 @@ function toGeometry(out, size = 1, ox = 0, oz = 0) {
   out.forEach((g, m) => {
     const base = pos.length / 3
     for (let k = 0; k < g.pos.length; k += 3) pos.push((g.pos[k] - ox) * size, g.pos[k + 1] * size, (g.pos[k + 2] - oz) * size)
-    nor.push(...g.nor)
-    cols.push(...g.col)
+    for (const v of g.nor) nor.push(v) // not push(...g.nor): big meshes overflow the call stack
+    for (const v of g.col) cols.push(v)
     for (const t of g.idx) idx.push(base + t)
     geo.addGroup(start, g.idx.length, m)
     start += g.idx.length

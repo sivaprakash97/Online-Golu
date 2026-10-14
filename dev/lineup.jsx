@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import Bommai from '../src/three/bommai/Bommai.jsx'
 import SoftEnv from '../src/three/SoftEnv.jsx'
 import { SEED_BOMMAIS } from '../src/data/seed.js'
-import { ACCESSORIES, DEFAULT_CONFIG, OUTFITS, POSES } from '../src/data/options.js'
+import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, POSES } from '../src/data/options.js'
 
 // Dev-only page (not part of the build): `npm run dev`, then open /dev/lineup.html.
 // Shows a row of Bommais under soft studio light, to judge the look of the dolls.
@@ -14,10 +14,13 @@ import { ACCESSORIES, DEFAULT_CONFIG, OUTFITS, POSES } from '../src/data/options
 //   ?set=poses           every pose, twice
 //   ?set=faces           the eye styles and face extras
 //   ?set=items           every accessory
+//   ?set=hair            every hairstyle
 //   ?only=3              just one of them, close up
 //   ?from=6&n=6          a few of them
+//   ?pick=1,4,7          just these ones
 //   ?angle=0.5           turn them (radians)
 //   ?dist=1&y=0.7        move the camera in, looking at height y
+//   ?move                let them move (idle animation and their pose's moves)
 const look = { body: 'regular', skin_tone: 'medium-brown', hair: 'long-wavy', hair_color: 'black', face: 'round', face_extras: [], accessory: 'none' }
 // one of each outfit, standing
 const SHOWCASE = OUTFITS.map((o, i) => ({ ...look, name: o.label, outfit: o.id, outfit_color: o.color, skin_tone: ['wheat', 'honey', 'tan', 'brown'][i % 4], hair: ['long-wavy', 'braid', 'top-bun', 'short-crop', 'side-part'][i % 5], pose: 'standing' }))
@@ -31,11 +34,14 @@ const FACES = ['round', 'sparkle', 'happy', 'sleepy', 'wink', 'dots'].map((face,
 const q = new URLSearchParams(location.search)
 // every accessory, standing and holding
 const ITEMS = ACCESSORIES.slice(1).map((a, i) => ({ ...look, name: a.label, accessory: a.id, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: i % 3 === 1 ? 'holding' : 'standing' }))
-const SETS = { items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
+// every hairstyle, from the front
+const HAIR = HAIR_STYLES.map((h, i) => ({ ...look, name: h.label, hair: h.id, outfit: ['kurta', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], skin_tone: ['wheat', 'honey', 'tan', 'brown'][i % 4], pose: 'standing' }))
+const SETS = { hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS
 const only = q.get('only')
 const from = +(q.get('from') || 0)
-const list = only != null ? [set[+only]] : set.slice(from, from + +(q.get('n') || set.length))
+const pick = q.get('pick')?.split(',').map(Number)
+const list = pick ? pick.map((i) => set[i]) : only != null ? [set[+only]] : set.slice(from, from + +(q.get('n') || set.length))
 const angle = +(q.get('angle') || 0)
 const gap = 1.0
 const width = (list.length - 1) * gap
@@ -55,7 +61,7 @@ function App() {
         <meshStandardMaterial color="#e2d3c2" />
       </mesh>
       {list.map((c, i) => (
-        <Bommai key={i} config={c} idle={false} position={[i * gap - width / 2, 0, 0]} rotation={[0, angle, 0]} />
+        <Bommai key={i} config={c} idle={q.has('move')} position={[i * gap - width / 2, 0, 0]} rotation={[0, angle, 0]} />
       ))}
       <OrbitControls target={[0, lookY, 0]} />
     </Canvas>
