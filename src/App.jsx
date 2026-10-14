@@ -4,8 +4,8 @@ import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
-import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep } from './data/options.js'
-import { addBommai, moveBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
+import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep, normalizeConfig } from './data/options.js'
+import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
 
@@ -24,6 +24,9 @@ const writeMine = (ids) => {
     /* private mode: fine */
   }
 }
+
+// Same spot and same look: a live update that changes nothing (e.g. the echo of our own edit).
+const sameRow = (a, b) => a.step === b.step && a.slot === b.slot && JSON.stringify(normalizeConfig(a)) === JSON.stringify(normalizeConfig(b))
 
 function useCountUp(n) {
   const [v, setV] = useState(n)
@@ -57,7 +60,7 @@ function Counter({ n, live }) {
 
 export default function App() {
   const [bommais, setBommais] = useState([])
-  const [mode, setMode] = useState('home') // home (explorable Golu) | create | place | placing | done
+  const [mode, setMode] = useState('home') // home (explorable Golu) | create | edit | place | placing | done
   const [view, setView] = useState({ kind: null, n: 0 }) // camera commands from the view buttons
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
   const [spawns, setSpawns] = useState({})
@@ -77,10 +80,10 @@ export default function App() {
       const t0 = 0.25
       setSpawns(Object.fromEntries(rows.map((r, i) => [r.id, { type: 'pop', delay: t0 + i * 0.07 }])))
       unsub = subscribeBommais((row) => {
-        // a new Bommai drops in; a moved one glides to its new spot
+        // a new Bommai drops in; a moved one glides to its new spot; an edited one changes its look
         setBommais((list) => {
           const i = list.findIndex((b) => b.id === row.id)
-          if (i >= 0) return list[i].step === row.step && list[i].slot === row.slot ? list : list.map((b) => (b.id === row.id ? row : b))
+          if (i >= 0) return sameRow(list[i], row) ? list : list.map((b) => (b.id === row.id ? row : b))
           setSpawns((s) => (s[row.id] ? s : { ...s, [row.id]: { type: 'drop', delay: 0 } }))
           return [...list, row]
         })
@@ -185,6 +188,35 @@ export default function App() {
     setTagId(id)
   }
 
+  // Your Bommai, once you've found it or clicked it, can be edited: back to the workshop with its
+  // look loaded; saving changes the look and name tag but keeps its spot.
+  const mine = bommais.find((b) => b.id === tagId && myIds.includes(b.id))
+  const [editingId, setEditingId] = useState(null)
+  const editing = bommais.find((b) => b.id === editingId)
+  const startEdit = () => {
+    if (!mine) return
+    setEditingId(mine.id)
+    setMode('edit')
+  }
+  const saveEdit = async (cfg) => {
+    const before = editing
+    if (!before) return setMode('home')
+    const id = before.id
+    setBommais((list) => list.map((b) => (b.id === id ? { ...b, ...normalizeConfig(cfg) } : b)))
+    setMode('home')
+    setFocusId(id)
+    setTagId(id)
+    try {
+      const row = await updateBommai(id, cfg)
+      setBommais((list) => list.map((b) => (b.id === id ? row : b)))
+      showToast('Your Bommai has its new look.')
+    } catch (e) {
+      console.error(e)
+      setBommais((list) => list.map((b) => (b.id === id ? before : b)))
+      showToast(e.code === 'edit_unavailable' ? "Editing isn't switched on for this Golu yet." : 'Could not save your changes. Try again?')
+    }
+  }
+
   const camera = (kind) => setView((v) => ({ kind, n: v.n + 1 }))
   const resetView = () => {
     setFocusId(null)
@@ -230,7 +262,7 @@ export default function App() {
               setTagId(b ? b.id : null)
             }}
             celebrate={celebrate}
-            paused={mode === 'create'}
+            paused={mode === 'create' || mode === 'edit'}
             view={view}
           />
         </div>
@@ -248,7 +280,14 @@ export default function App() {
             <div className="hud-count">
               <Counter n={count} live={live} />
             </div>
-            <div className="cta-row">{mainCta}</div>
+            <div className="cta-row">
+              {mainCta}
+              {mine && (
+                <button className="btn-secondary" onClick={startEdit}>
+                  Edit
+                </button>
+              )}
+            </div>
             <p className="explore-hint">
               {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is
             </p>
@@ -273,6 +312,11 @@ export default function App() {
               setMode('place')
             }}
           />
+        )}
+
+        {/* EDIT (your Bommai, already on the Golu) */}
+        {mode === 'edit' && editing && (
+          <Creator key={editing.id} editing initial={normalizeConfig(editing)} count={count} onBack={() => setMode('home')} onDone={saveEdit} />
         )}
 
         {/* PLACE */}
@@ -319,7 +363,7 @@ export default function App() {
 
         {toast && <div className="toast">{toast}</div>}
 
-        {!live && mode !== 'create' && (
+        {!live && mode !== 'create' && mode !== 'edit' && (
           <div className="demo-badge" title="Supabase is not connected in this build, so new Bommais only live in this tab.">
             Preview · not shared yet
           </div>

@@ -8,8 +8,10 @@ import { normalizeConfig, spotsOnStep } from '../data/options.js'
 // store.list()                  -> Promise<Bommai[]>
 // store.add(config, step, slot) -> Promise<Bommai>
 // store.move(id, step, slot)    -> Promise<Bommai>   (only your own Bommai)
-// store.subscribe(fn)           -> unsubscribe; fn(bommai) whenever anyone adds or moves one
+// store.update(id, config)      -> Promise<Bommai>   (only your own; changes the look and name, not the spot)
+// store.subscribe(fn)           -> unsubscribe; fn(bommai) whenever anyone adds, moves or edits one
 // add/move reject with err.code: 'slot_taken' | 'step_full' | 'already_placed' | 'locked_step' | 'move_unavailable'
+// update rejects with err.code 'edit_unavailable' (not yours, or editing isn't switched on yet)
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -71,6 +73,14 @@ function memoryStore() {
       subs.forEach((fn) => fn(rows[i]))
       return rows[i]
     },
+    async update(id, config) {
+      const i = rows.findIndex((r) => r.id === id)
+      if (i < 0) throw placementError('edit_unavailable', 'Not found')
+      const { id: _, step, slot, created_at, seeded } = rows[i]
+      rows[i] = toRow({ ...normalizeConfig(config), id, step, slot, created_at, seeded })
+      subs.forEach((fn) => fn(rows[i]))
+      return rows[i]
+    },
     subscribe(fn) {
       subs.add(fn)
       return () => subs.delete(fn)
@@ -124,6 +134,14 @@ function supabaseStore() {
       if (error) throw error.code === 'PGRST116' ? placementError('move_unavailable', 'Not your Bommai') : toPlacementError(error)
       return toRow(data)
     },
+    async update(id, config) {
+      await ensureSession()
+      // only the recipe and the name tag; the spot, owner and timestamps stay as they are
+      const { data, error } = await sb.from('bommais').update(normalizeConfig(config)).eq('id', id).select(columns()).single()
+      // PGRST116: no row came back (not yours); 42501: the edit migration hasn't been applied
+      if (error) throw error.code === 'PGRST116' || error.code === '42501' ? placementError('edit_unavailable', error.message) : error
+      return toRow(data)
+    },
     subscribe(fn) {
       const ch = sb
         .channel('bommais-changes')
@@ -156,6 +174,7 @@ export async function loadBommais() {
 }
 export const addBommai = (config, step, slot) => store.add(config, step, slot)
 export const moveBommai = (id, step, slot) => store.move(id, step, slot)
+export const updateBommai = (id, config) => store.update(id, config)
 export const subscribeBommais = (fn) => store.subscribe(fn)
 export const storeKind = () => store.kind
 export const canMoveBommais = () => store.canMove
