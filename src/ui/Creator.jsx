@@ -194,6 +194,18 @@ function Preview({ config }) {
 export default function Creator({ initial, onBack, onDone, count }) {
   const [config, setConfig] = useState(initial)
   const [cat, setCat] = useState('body')
+  // the name tag is how friends find your Bommai, so it can't be left blank
+  const [needName, setNeedName] = useState(false)
+  const nameRef = useRef()
+  const place = () => {
+    const name = config.name.trim()
+    if (!name) {
+      setNeedName(true)
+      nameRef.current?.focus()
+      return
+    }
+    onDone({ ...config, name })
+  }
   const set = (patch) => setConfig((c) => ({ ...c, ...patch }))
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
   const gridRef = useRef()
@@ -248,17 +260,30 @@ export default function Creator({ initial, onBack, onDone, count }) {
             <span aria-hidden>🎲</span> Surprise me
           </button>
         </div>
-        <label className="name-field">
+        <label className={`name-field ${needName ? 'is-missing' : ''}`}>
           <span>Name on the tag</span>
           <input
+            ref={nameRef}
             value={config.name}
             maxLength={20}
             placeholder="Your name"
-            onChange={(e) => setConfig((c) => ({ ...c, name: e.target.value }))}
+            required
+            aria-invalid={needName}
+            aria-describedby={needName ? 'name-hint' : undefined}
+            onChange={(e) => {
+              const name = e.target.value
+              setConfig((c) => ({ ...c, name }))
+              if (name.trim()) setNeedName(false)
+            }}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           />
         </label>
-        <button className="btn-primary btn-place" onClick={() => onDone(config)}>
+        {needName && (
+          <p className="name-hint" id="name-hint" role="alert">
+            Add your name so friends can find your Bommai.
+          </p>
+        )}
+        <button className="btn-primary btn-place" onClick={place}>
           Place my Bommai <span aria-hidden>→</span>
         </button>
       </aside>
