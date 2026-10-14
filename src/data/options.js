@@ -54,14 +54,14 @@ export const OUTFITS = [
   { id: 'silk-saree', label: 'Silk saree', bottom: 'saree', top: 'blouse', drape: 'pallu', accent: '#e8b33c', pattern: 'butta', color: 'kumkum' },
   { id: 'pavadai', label: 'Pavadai', bottom: 'skirt', top: 'blouse', drape: 'davani', accent: '#e8b33c', pattern: 'butta', color: 'parrot' },
   { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.55, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose' },
+  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
+  { id: 'crop-skirt', label: 'Crop top + skirt', bottom: 'maxi', top: 'crop', pattern: 'dots', color: 'peacock' },
+  { id: 'jumpsuit', label: 'Jumpsuit', bottom: 'pants', top: 'jumpsuit', color: 'maroon' },
   { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.5, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
   { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
   { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
   { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky' },
   { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', top: 'tee', pants: '#3b5b8c', color: 'kumkum' },
-  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
-  { id: 'crop-skirt', label: 'Crop top + skirt', bottom: 'maxi', top: 'crop', pattern: 'dots', color: 'peacock' },
-  { id: 'jumpsuit', label: 'Jumpsuit', bottom: 'pants', top: 'jumpsuit', color: 'maroon' },
   { id: 'hoodie', label: 'Hoodie', bottom: 'pants', top: 'hoodie', pants: '#2f2f38', color: 'lavender' },
 ]
 // Outfits that were dropped, and what dolls already wearing them change into.
