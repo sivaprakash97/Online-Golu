@@ -46,37 +46,42 @@ export const HAIR_COLORS = [
   { id: 'blonde', color: '#dcbf86' },
 ]
 
-// bottom: pants | skirt | saree | dhoti | dress
+// bottom: pants | skirt | saree | dhoti | dress | maxi (an ankle-length skirt)
 // topLength: how far down the top reaches (1 = waist, 1.6 = knee-length tunic)
-// pattern: woven into the voxels of the main colour (butta = little gold motifs)
+// pattern: woven into the voxels of the main colour (butta = little gold motifs, dots = a light print)
+// The blouse and davani (saree, pavadai), the crop top and the jumpsuit's belt take the colour's pair.
 export const OUTFITS = [
   { id: 'silk-saree', label: 'Silk saree', bottom: 'saree', top: 'blouse', drape: 'pallu', accent: '#e8b33c', pattern: 'butta', color: 'kumkum' },
   { id: 'pavadai', label: 'Pavadai', bottom: 'skirt', top: 'blouse', drape: 'davani', accent: '#e8b33c', pattern: 'butta', color: 'parrot' },
   { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.55, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose' },
+  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
+  { id: 'crop-skirt', label: 'Crop top + skirt', bottom: 'maxi', top: 'crop', pattern: 'dots', color: 'peacock' },
+  { id: 'jumpsuit', label: 'Jumpsuit', bottom: 'pants', top: 'jumpsuit', color: 'maroon' },
   { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.5, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
   { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
   { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
   { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky' },
   { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', top: 'tee', pants: '#3b5b8c', color: 'kumkum' },
-  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
   { id: 'hoodie', label: 'Hoodie', bottom: 'pants', top: 'hoodie', pants: '#2f2f38', color: 'lavender' },
 ]
 // Outfits that were dropped, and what dolls already wearing them change into.
 const RETIRED_OUTFITS = { jibba: 'kurta', overalls: 'shirt-pants' }
 
+// pair: the colour that goes with it on two-tone outfits, picked the way silk sarees and pavadais
+// are paired (red with parrot green, maroon with mustard, cream with red…)
 export const OUTFIT_COLORS = [
-  { id: 'kumkum', color: '#c8323a' },
-  { id: 'maroon', color: '#7a1f2b' },
-  { id: 'turmeric', color: '#eab12f' },
-  { id: 'mustard', color: '#c99a2e' },
-  { id: 'parrot', color: '#3f9b4b' },
-  { id: 'mint', color: '#8fd1b4' },
-  { id: 'peacock', color: '#16727c' },
-  { id: 'sky', color: '#7fb4e0' },
-  { id: 'lavender', color: '#9a86d1' },
-  { id: 'rose', color: '#e58aa0' },
-  { id: 'cream', color: '#f3ead7' },
-  { id: 'charcoal', color: '#2e2f38' },
+  { id: 'kumkum', color: '#c8323a', pair: 'parrot' },
+  { id: 'maroon', color: '#7a1f2b', pair: 'mustard' },
+  { id: 'turmeric', color: '#eab12f', pair: 'kumkum' },
+  { id: 'mustard', color: '#c99a2e', pair: 'peacock' },
+  { id: 'parrot', color: '#3f9b4b', pair: 'rose' },
+  { id: 'mint', color: '#8fd1b4', pair: 'maroon' },
+  { id: 'peacock', color: '#16727c', pair: 'mustard' },
+  { id: 'sky', color: '#7fb4e0', pair: 'rose' },
+  { id: 'lavender', color: '#9a86d1', pair: 'mustard' },
+  { id: 'rose', color: '#e58aa0', pair: 'parrot' },
+  { id: 'cream', color: '#f3ead7', pair: 'kumkum' },
+  { id: 'charcoal', color: '#2e2f38', pair: 'turmeric' },
 ]
 
 export const EYES = [
@@ -188,6 +193,10 @@ export const LOOKUP = {
   accessory: byId(ACCESSORIES),
   pose: byId(POSES),
 }
+
+// A colour's pair (see OUTFIT_COLORS), and whether an outfit shows it big enough to put on the swatch.
+export const pairColor = (colorId) => LOOKUP.outfitColor[LOOKUP.outfitColor[colorId]?.pair]?.color
+export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit[outfitId]?.top)
 
 // Unknown ids (e.g. an option removed later) fall back to defaults so old rows still render.
 export function normalizeConfig(c = {}) {

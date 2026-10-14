@@ -20,6 +20,8 @@ import {
   ACCESSORIES,
   POSES,
   randomConfig,
+  pairColor,
+  showsPair,
 } from '../data/options.js'
 
 const CATEGORIES = [
@@ -42,16 +44,17 @@ function Tile({ selected, onClick, label, frame, config, multi }) {
   )
 }
 
-function Swatches({ items, value, onPick, label }) {
+// `paired`: two-tone outfits show each colour with its pair (the blouse, davani or top), split corner to corner
+function Swatches({ items, value, onPick, label, paired = false }) {
   return (
     <div className="swatch-row" role="radiogroup" aria-label={label}>
       {items.map((s) => (
         <button
           key={s.id}
           className={`swatch ${value === s.id ? 'is-on' : ''}`}
-          style={{ '--sw': s.color }}
+          style={{ '--sw': paired ? `linear-gradient(135deg, ${s.color} 0 58%, ${pairColor(s.id)} 58% 100%)` : s.color }}
           onClick={() => onPick(s.id)}
-          aria-label={s.label || s.id}
+          aria-label={paired ? `${s.label || s.id} with ${s.pair}` : s.label || s.id}
           aria-checked={value === s.id}
           role="radio"
         />
@@ -103,7 +106,7 @@ function Options({ cat, config, set }) {
       return (
         <>
           <Section title="Colour">
-            <Swatches items={OUTFIT_COLORS} value={config.outfit_color} onPick={(v) => set({ outfit_color: v })} label="Outfit colour" />
+            <Swatches items={OUTFIT_COLORS} value={config.outfit_color} onPick={(v) => set({ outfit_color: v })} label="Outfit colour" paired={showsPair(config.outfit)} />
           </Section>
           <Section title="Style">
             <div className="tile-grid">
