@@ -30,7 +30,9 @@ function shotFor(name, aspect, focus) {
 
 // The camera's target can't leave this box around the Golu, so panning never loses the scene.
 const BOUNDS = new THREE.Box3(new THREE.Vector3(-5.6, 1.7, -7), new THREE.Vector3(5.6, 5, 1.2))
-const MIN_DIST = 3
+const MIN_DIST = 2.4
+// how strongly a pinch or wheel zooms (1 = camera-controls' default)
+const ZOOM_SPEED = 1.25
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 // a real mouse wheel sends big whole-number steps; a trackpad sends small, fractional ones
@@ -73,6 +75,7 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
     c.minAzimuthAngle = -0.7
     c.maxAzimuthAngle = 0.7
     c.truckSpeed = 1.4
+    c.dollySpeed = ZOOM_SPEED // two-finger pinch on touch screens
     const stop = () => (touched.current = true)
     c.addEventListener('controlstart', stop)
     return () => c.removeEventListener('controlstart', stop)
@@ -88,7 +91,7 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
       c.setLookAt(...s.pos, ...s.target, true)
     } else {
       touched.current = true
-      const k = view.kind === 'in' ? 0.72 : 1.38
+      const k = view.kind === 'in' ? 0.66 : 1.5
       c.dollyTo(clamp(c.distance * k, limits.current.min, limits.current.max), true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,7 +111,7 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
       e.preventDefault()
       touched.current = true
       if (e.ctrlKey || isMouseWheel(e)) {
-        zoomTo(c.distance * Math.exp(e.deltaY * (e.ctrlKey ? 0.012 : 0.0015)))
+        zoomTo(c.distance * Math.exp(e.deltaY * (e.ctrlKey ? 0.012 : 0.0015) * ZOOM_SPEED))
       } else {
         c.smoothTime = 0.12
         const k = c.distance * 0.0011
@@ -126,7 +129,7 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
     const onGestureChange = (e) => {
       if (!ref.current || !enabled.current || !startDist) return
       e.preventDefault()
-      zoomTo(startDist / e.scale)
+      zoomTo(startDist / Math.pow(e.scale, ZOOM_SPEED))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('gesturestart', onGestureStart)

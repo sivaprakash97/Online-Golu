@@ -5,6 +5,7 @@
 
 const PRESENT = 1 << 24
 export const SHINY = 1 << 25 // drawn with the metallic material (gold, sequins)
+export const GLOW = 1 << 26 // drawn unlit at full brightness (lamp flames)
 
 // A colour word: '#rrggbb' or 0xrrggbb, optionally with SHINY or'ed in.
 export function word(c) {
@@ -13,6 +14,7 @@ export function word(c) {
   return c | PRESENT
 }
 export const shiny = (c) => word(c) | SHINY
+export const glow = (c) => word(c) | GLOW
 
 export class VoxelGrid {
   constructor(sx = 112, sy = 128, sz = 72) {

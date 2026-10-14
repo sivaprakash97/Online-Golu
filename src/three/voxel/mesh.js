@@ -1,10 +1,10 @@
 import * as THREE from 'three'
-import { SHINY } from './grid.js'
+import { SHINY, GLOW } from './grid.js'
 
 // Turns a VoxelGrid into one BufferGeometry: only faces that touch air are kept, neighbouring
 // faces of the same colour are merged into larger quads (greedy meshing), and every corner gets
 // a little ambient occlusion so creases and the gaps between slabs read like a soft studio render.
-// Two material groups: 0 matte, 1 shiny.
+// Three material groups: 0 matte, 1 shiny, 2 glowing.
 
 const AO = [0.58, 0.74, 0.88, 1]
 const col = new THREE.Color()
@@ -27,6 +27,7 @@ export function meshGrid(grid, size) {
           if (z > hi[2]) hi[2] = z
         }
   const out = [
+    { pos: [], nor: [], col: [], idx: [] },
     { pos: [], nor: [], col: [], idx: [] },
     { pos: [], nor: [], col: [], idx: [] },
   ]
@@ -117,7 +118,7 @@ export function meshGrid(grid, size) {
   function emit(o, d, u, v, dir, s, i0, j0, w, h, key) {
     const wordv = Math.floor(key / 256)
     const ao = key % 256
-    const g = o[wordv & SHINY ? 1 : 0]
+    const g = o[wordv & GLOW ? 2 : wordv & SHINY ? 1 : 0]
     col.setHex(wordv & 0xffffff) // sRGB hex -> linear working space
     const plane = dir > 0 ? s + 1 : s
     const base = g.pos.length / 3
@@ -177,4 +178,5 @@ function toGeometry(out, size = 1, ox = 0, oz = 0) {
 export const VOXEL_MATERIALS = [
   new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0 }),
   new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.55 }),
+  new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
 ]
