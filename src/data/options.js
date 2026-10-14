@@ -44,20 +44,21 @@ export const HAIR_COLORS = [
 ]
 
 // bottom: pants | skirt | saree | dhoti | dress | shorts
+// pattern: butta (gold motifs) | polka | check | stripes | sparkle, painted on the voxels
 // top length: how far down the torso block extends (1 = waist, 1.6 = knee-length tunic)
 export const OUTFITS = [
-  { id: 'silk-saree', label: 'Silk saree', bottom: 'saree', top: 'blouse', drape: 'pallu', accent: '#e8b33c', color: 'kumkum' },
-  { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.55, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
+  { id: 'silk-saree', label: 'Silk saree', bottom: 'saree', top: 'blouse', drape: 'pallu', accent: '#e8b33c', color: 'kumkum', pattern: 'butta' },
+  { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.55, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric', pattern: 'butta' },
   { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
   { id: 'pavadai', label: 'Pavadai', bottom: 'skirt', top: 'blouse', drape: 'davani', accent: '#e8b33c', color: 'parrot' },
-  { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky' },
-  { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', pants: '#3b5b8c', color: 'kumkum' },
-  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
+  { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky', pattern: 'check' },
+  { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', pants: '#3b5b8c', color: 'kumkum', pattern: 'stripes' },
+  { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock', pattern: 'polka' },
   { id: 'hoodie', label: 'Hoodie', bottom: 'pants', top: 'hoodie', pants: '#2f2f38', color: 'lavender' },
   { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
-  { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.5, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose' },
+  { id: 'salwar', label: 'Salwar + dupatta', bottom: 'pants', topLength: 1.5, drape: 'dupatta', pants: '#f3ead7', accent: '#e8b33c', color: 'rose', pattern: 'polka' },
   { id: 'overalls', label: 'Overalls', bottom: 'pants', top: 'overalls', pants: null, color: 'mustard' },
-  { id: 'jibba', label: 'Jibba + shorts', bottom: 'shorts', topLength: 1.15, pants: '#e9dfc9', color: 'mint' },
+  { id: 'jibba', label: 'Jibba + shorts', bottom: 'shorts', topLength: 1.15, pants: '#e9dfc9', color: 'mint', pattern: 'sparkle' },
 ]
 
 export const OUTFIT_COLORS = [
@@ -113,6 +114,11 @@ export const ACCESSORIES = [
   { id: 'flowers', label: 'Marigolds', hold: 'hand' },
   { id: 'paintbrush', label: 'Paintbrush', hold: 'hand' },
   { id: 'ice-cream', label: 'Kulfi', hold: 'hand' },
+  { id: 'bunny-hat', label: 'Bunny hat', hold: 'head' },
+  { id: 'cat-hat', label: 'Cat hat', hold: 'head' },
+  { id: 'bear-hat', label: 'Bear hat', hold: 'head' },
+  { id: 'flower-crown', label: 'Flower crown', hold: 'head' },
+  { id: 'handbag', label: 'Handbag', hold: 'ground' },
 ]
 
 export const POSES = [
