@@ -5,10 +5,12 @@
     <title>Bommai lineup</title>
     <style>
       html, body, #root { margin: 0; height: 100%; background: #e9dccd; }
+      body.clear, body.clear #root { background: transparent; }
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <script>if (location.search.includes('clear')) (document.body.classList.add('clear'), (document.documentElement.style.background = 'transparent'))</script>
     <script type="module" src="./lineup.jsx"></script>
   </body>
 </html>

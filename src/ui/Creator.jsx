@@ -192,7 +192,8 @@ function Preview({ config }) {
   )
 }
 
-export default function Creator({ initial, onBack, onDone, count }) {
+// `editing`: changing a Bommai that is already on the Golu (its spot stays; the button saves).
+export default function Creator({ initial, onBack, onDone, count, editing = false }) {
   const [config, setConfig] = useState(initial)
   const [cat, setCat] = useState('body')
   // the name tag is how friends find your Bommai, so it can't be left blank
@@ -223,7 +224,7 @@ export default function Creator({ initial, onBack, onDone, count }) {
         </button>
         <div className="creator-title">
           <span className="eyebrow">Bommai workshop</span>
-          <h2>Make your Bommai</h2>
+          <h2>{editing ? 'Edit your Bommai' : 'Make your Bommai'}</h2>
         </div>
         <div className="creator-count">
           <b>{count}</b> already on the Golu
@@ -286,7 +287,7 @@ export default function Creator({ initial, onBack, onDone, count }) {
           </p>
         )}
         <button className="btn-primary btn-place" onClick={place}>
-          Place my Bommai <span aria-hidden>→</span>
+          {editing ? 'Save changes' : 'Place my Bommai'} <span aria-hidden>→</span>
         </button>
       </aside>
     </div>

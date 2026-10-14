@@ -21,6 +21,7 @@ import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, POSES } from '../src
 //   ?angle=0.5           turn them (radians)
 //   ?dist=1&y=0.7        move the camera in, looking at height y
 //   ?move                let them move (idle animation and their pose's moves)
+//   ?clear               transparent background and no floor (for rendering icons)
 const look = { body: 'regular', skin_tone: 'medium-brown', hair: 'long-wavy', hair_color: 'black', face: 'round', face_extras: [], accessory: 'none' }
 // one of each outfit, standing
 const SHOWCASE = OUTFITS.map((o, i) => ({ ...look, name: o.label, outfit: o.id, outfit_color: o.color, skin_tone: ['wheat', 'honey', 'tan', 'brown'][i % 4], hair: ['long-wavy', 'braid', 'top-bun', 'short-crop', 'side-part'][i % 5], pose: 'standing' }))
@@ -43,6 +44,7 @@ const from = +(q.get('from') || 0)
 const pick = q.get('pick')?.split(',').map(Number)
 const list = pick ? pick.map((i) => set[i]) : only != null ? [set[+only]] : set.slice(from, from + +(q.get('n') || set.length))
 const angle = +(q.get('angle') || 0)
+const clear = q.has('clear') // transparent background, no floor (for icons)
 const gap = 1.0
 const width = (list.length - 1) * gap
 const dist = +(q.get('dist') || 0) || (only != null ? 2.4 : Math.max(3, width * 0.62))
@@ -50,16 +52,18 @@ const lookY = +(q.get('y') || 0.5)
 
 function App() {
   return (
-    <Canvas shadows dpr={1} camera={{ fov: 30, position: [0, lookY + 0.2, dist] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, preserveDrawingBuffer: true }}>
-      <color attach="background" args={['#e9dccd']} />
+    <Canvas shadows dpr={1} camera={{ fov: 30, position: [0, lookY + 0.2, dist] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, preserveDrawingBuffer: true, alpha: true }}>
+      {!clear && <color attach="background" args={['#e9dccd']} />}
       <hemisphereLight args={['#fff6ea', '#b89b86', 1.0]} />
       <directionalLight position={[-2.5, 4, 3.5]} intensity={2.0} color="#fff1df" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={4} shadow-camera-bottom={-2} />
       <directionalLight position={[3, 1.5, 2]} intensity={0.6} />
       <SoftEnv intensity={0.3} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial color="#e2d3c2" />
-      </mesh>
+      {!clear && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[40, 40]} />
+          <meshStandardMaterial color="#e2d3c2" />
+        </mesh>
+      )}
       {list.map((c, i) => (
         <Bommai key={i} config={c} idle={q.has('move')} position={[i * gap - width / 2, 0, 0]} rotation={[0, angle, 0]} />
       ))}
