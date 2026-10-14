@@ -297,7 +297,7 @@ export default function App() {
               )}
             </div>
             <p className="explore-hint">
-              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · {touch ? '' : 'scroll to move · '}pinch to zoom · tap a Bommai to see who it is
+              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">

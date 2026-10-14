@@ -369,6 +369,11 @@ input:focus-visible {
   text-align: center;
   animation: pop 0.3s both;
 }
+/* a tag that sits on its anchor point instead of being centred on it (fixed-size tags on phones) */
+.tag-above {
+  transform: translateY(-50%);
+  padding-bottom: 4px;
+}
 .nametag-you {
   font-size: 9px;
   letter-spacing: 0.14em;
