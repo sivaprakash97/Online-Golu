@@ -55,6 +55,15 @@ input:focus-visible {
 .app {
   position: fixed;
   inset: 0;
+  /* holding a finger on a Bommai to pick it up must not start a text selection or the phone's
+     copy / save-image menu; the name field stays typeable */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.app input {
+  -webkit-user-select: text;
+  user-select: text;
 }
 .stage {
   position: absolute;

@@ -35,6 +35,7 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 - `src/three/DragLayer.jsx` is drag and drop: the doll hangs from the pointer by its head and swings like a pendulum, free spots glow, the one under the pointer swells, and dropping on steps 8–9 (or anywhere that isn't a free spot) floats it back. The top two steps show a *reserved for the deities and gods* message. On an upright phone, carrying the doll near an edge pans the view.
 - Option tiles in the creator are real renders of your Bommai, generated on a hidden canvas (`src/three/Thumbnails.jsx`).
 - `src/lib/store.js` is the only place that talks to Supabase.
+- **Sandbox (`?sandbox` on any URL):** a practice Golu for running the flow again and again, for testing or screen recording. It starts from the real Golu, but what you add, move or edit stays in that tab and never reaches the database; reloading starts over as a first-time visitor (your real Bommai is ignored, and the *Preview* badge is hidden).
 
 ## Supabase
 

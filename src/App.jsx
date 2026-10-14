@@ -5,13 +5,15 @@ import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep, normalizeConfig } from './data/options.js'
-import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
+import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, SANDBOX } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
 import { TOUCH, useMedia } from './lib/device.js'
 
 const MINE_KEY = 'golu.mine'
+// The sandbox never remembers whose Bommai is whose, so every reload is a first visit again.
 const readMine = () => {
+  if (SANDBOX) return []
   try {
     return JSON.parse(localStorage.getItem(MINE_KEY) || '[]')
   } catch {
@@ -19,6 +21,7 @@ const readMine = () => {
   }
 }
 const writeMine = (ids) => {
+  if (SANDBOX) return
   try {
     localStorage.setItem(MINE_KEY, JSON.stringify(ids))
   } catch {
@@ -177,7 +180,8 @@ export default function App() {
 
   const shareMine = async () => {
     const id = justPlaced?.id || myIds[myIds.length - 1]
-    const res = await share(id, justPlaced?.name)
+    // a sandbox Bommai lives only in this tab, so share the Golu itself
+    const res = await share(SANDBOX ? null : id, justPlaced?.name)
     if (res === 'copied') showToast('Link copied. Send it to a friend!')
     else if (res === 'failed') showToast('Could not share from this browser.')
   }
@@ -243,7 +247,7 @@ export default function App() {
   const placing = mode === 'place'
   const touch = useMedia(TOUCH)
   const count = bommais.length
-  const live = storeKind() === 'supabase'
+  const live = isLive()
 
   return (
     <ThumbnailProvider>
@@ -367,7 +371,7 @@ export default function App() {
 
         {toast && <div className="toast">{toast}</div>}
 
-        {!live && mode !== 'create' && mode !== 'edit' && (
+        {!live && !SANDBOX && mode !== 'create' && mode !== 'edit' && (
           <div className="demo-badge" title="Supabase is not connected in this build, so new Bommais only live in this tab.">
             Preview · not shared yet
           </div>
