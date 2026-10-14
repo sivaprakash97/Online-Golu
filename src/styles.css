@@ -760,6 +760,24 @@ input:focus-visible {
 .name-field input::placeholder {
   color: #7e6152;
 }
+.name-field.is-missing {
+  border-color: var(--kumkum);
+  animation: nudge 0.35s ease;
+}
+.name-hint {
+  margin: -4px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff9a8f;
+}
+@keyframes nudge {
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
 .btn-place {
   width: 100%;
   min-height: 60px;
