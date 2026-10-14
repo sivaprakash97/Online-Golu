@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { SMALL_SCREEN, useMedia } from '../lib/device.js'
 
-// The Golu is built for desktop for now. On phone-sized screens we show this instead of loading
-// the 3D scene at all, with a way to send the link to a computer and an escape hatch.
-const SMALL = '(max-width: 899px), (max-height: 499px)'
+// The Golu is at its best on a computer. On phone-sized screens we say so first, with a way to
+// send the link to a computer, then let people carry on (the phone version is still new).
 const SKIP_KEY = 'golu.mobileAnyway'
 
 const readSkip = () => {
@@ -14,14 +14,8 @@ const readSkip = () => {
 }
 
 export function useDesktopGate() {
-  const [small, setSmall] = useState(() => window.matchMedia(SMALL).matches)
+  const small = useMedia(SMALL_SCREEN)
   const [skipped, setSkipped] = useState(readSkip)
-  useEffect(() => {
-    const mq = window.matchMedia(SMALL)
-    const on = () => setSmall(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
   const skip = () => {
     try {
       sessionStorage.setItem(SKIP_KEY, '1')
@@ -54,12 +48,15 @@ export default function DesktopOnly({ onSkip }) {
         The Internet <em>Golu</em>
       </h1>
       <h2>Best on a computer</h2>
-      <p>The Golu and its little Bommais are built for a bigger screen for now. Open this link on your laptop or desktop to add yours.</p>
-      <button className="btn-primary" onClick={copy}>
-        {copied ? 'Link copied ✓' : 'Copy link'}
+      <p>
+        You can make your Bommai on your phone, but the phone version is new and still a little rough around the edges. For the best experience, open
+        this link on a laptop or desktop.
+      </p>
+      <button className="btn-primary" onClick={onSkip}>
+        Continue on phone <span aria-hidden>→</span>
       </button>
-      <button className="btn-link" onClick={onSkip}>
-        Open it anyway
+      <button className="btn-link" onClick={copy}>
+        {copied ? 'Link copied ✓' : 'Copy link for my computer'}
       </button>
     </div>
   )

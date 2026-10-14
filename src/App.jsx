@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep, normalizeConfig } from './data
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, storeKind, canMoveBommais } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
+import { TOUCH, useMedia } from './lib/device.js'
 
 const MINE_KEY = 'golu.mine'
 const readMine = () => {
@@ -240,6 +241,7 @@ export default function App() {
   )
 
   const placing = mode === 'place'
+  const touch = useMedia(TOUCH)
   const count = bommais.length
   const live = storeKind() === 'supabase'
 
@@ -291,7 +293,7 @@ export default function App() {
               )}
             </div>
             <p className="explore-hint">
-              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · scroll to move · pinch to zoom · tap a Bommai to see who it is
+              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · {touch ? '' : 'scroll to move · '}pinch to zoom · tap a Bommai to see who it is
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">

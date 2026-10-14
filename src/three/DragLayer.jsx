@@ -5,12 +5,16 @@ import Bommai from './bommai/Bommai.jsx'
 import { Torus, Disc } from './prims.jsx'
 import { GOLU, slotPos, freeSlots, pickStep } from './golu/layout.js'
 import { LOOKUP, OPEN_STEPS } from '../data/options.js'
+import { PORTRAIT_ASPECT } from '../lib/device.js'
 
 // Drag and drop for Bommais, picked up by the head.
 // press(event, item) starts a gesture on a doll; past a few pixels it becomes a drag. The doll then
 // hangs from the pointer by the top of its head and swings like a pendulum as it is carried.
 // Free spots glow; dropping on one lowers it onto the step, dropping on the traditional steps (8, 9)
 // or anywhere else floats it back to where it came from.
+// With `edgePan` on an upright phone (where placing is zoomed in), carrying the doll near the left
+// or right edge slides the view along the steps; away from the edges the view holds still, so the
+// spot under your finger stays put.
 //   item: { key, kind: 'draft' | 'placed', id?, config, origin: [x, y, z] (base), scale }
 
 const HEAD_TOP = 1.0 // top of the head above the pedestal base, for an unscaled Bommai
@@ -20,7 +24,10 @@ const G = 9.8
 const ARM = 0.75 // pendulum length
 const MAX_SWING = 0.8 // radians; a flick swings it about 45° at most
 const MAX_ACC = 25
+const EDGE = 0.18 // how much of the screen's width, on each side, pans the view
+const PAN_SPEED = 6 // world units a second, with the pointer right at the edge
 const v3 = (a) => new THREE.Vector3(...a)
+const look = new THREE.Vector3()
 
 const baseFor = (config, step, slot) => {
   const p = slotPos(step, slot)
@@ -55,8 +62,9 @@ function ReservedGlow({ step }) {
   )
 }
 
-const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, onReject, onDragChange, onClickItem }, apiRef) {
-  const { camera, gl, controls } = useThree()
+const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, edgePan, onDrop, onReject, onDragChange, onClickItem }, apiRef) {
+  const { camera, gl, controls, size } = useThree()
+  const pan = edgePan && size.width / size.height < PORTRAIT_ASPECT
   const [drag, setDrag] = useState(null) // the item being carried
   const [hover, setHover] = useState(null) // { step, slot } | { step, reserved } | { step, full }
   const grip = useRef()
@@ -66,7 +74,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
   const pointer = useRef({ x: 0, y: 0 })
   const ray = useMemo(() => new THREE.Raycaster(), [])
   const latest = useRef({})
-  latest.current = { bommais, onDrop, onReject, onDragChange, onClickItem, controls, hover }
+  latest.current = { bommais, onDrop, onReject, onDragChange, onClickItem, controls, hover, pan }
 
   const finish = () => {
     sim.current = null
@@ -121,6 +129,12 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
   const goBack = (s) => {
     s.phase = 'return'
     s.target = v3(s.item.origin).add(new THREE.Vector3(0, HEAD_TOP * s.item.scale + 0.4, 0))
+    // the view may have panned away: bring it back to where the doll is going
+    const c = latest.current.controls
+    if (latest.current.pan && c) {
+      c.getTarget(look)
+      c.moveTo(0, look.y, look.z, true)
+    }
   }
 
   useImperativeHandle(apiRef, () => ({
@@ -171,6 +185,23 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, onDrop, 
     const s = sim.current
     if (!s || !grip.current) return
     const dt = Math.min(rawDt, 1 / 30)
+    const c = latest.current.controls
+
+    if (s.phase === 'carry' && pan && c) {
+      const rect = gl.domElement.getBoundingClientRect()
+      const fx = (pointer.current.x - rect.left) / rect.width
+      const push = THREE.MathUtils.clamp(fx < EDGE ? (fx - EDGE) / EDGE : fx > 1 - EDGE ? (fx - 1 + EDGE) / EDGE : 0, -1, 1)
+      if (push) {
+        // as far as the ends of the bottom step, and no further
+        const half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * camera.position.z
+        const max = Math.max(0, GOLU.W / 2 + 0.6 - half)
+        c.getTarget(look)
+        c.moveTo(THREE.MathUtils.clamp(look.x + push * PAN_SPEED * dt, -max, max), look.y, look.z, false)
+      }
+    }
+    // the controls are switched off while carrying (so the view doesn't orbit), and drei only ticks
+    // switched-on controls: keep the camera moving (panning, or finishing a glide) from here
+    if (c && !c.enabled) c.update(dt)
 
     if (s.phase === 'carry') {
       const rect = gl.domElement.getBoundingClientRect()

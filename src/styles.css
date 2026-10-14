@@ -449,6 +449,8 @@ input:focus-visible {
   right: 0;
   margin-inline: auto;
   width: fit-content;
+  max-width: calc(100vw - 32px);
+  text-align: center;
   background: var(--paper);
   color: var(--paper-ink);
   font-weight: 700;
@@ -892,8 +894,8 @@ input:focus-visible {
   box-shadow: 0 4px 0 #b99e78;
 }
 
-/* ---------- compact landscape (phones) ---------- */
-@media (max-height: 520px) {
+/* ---------- compact landscape (phones on their side) ---------- */
+@media (max-height: 520px) and (min-width: 560px) {
   .signboard img {
     width: 240px;
   }
@@ -977,6 +979,284 @@ input:focus-visible {
   }
   .explore-hint {
     display: none;
+  }
+}
+
+/* ---------- portrait (phones held upright; PORTRAIT in src/lib/device.js) ---------- */
+/* the workshop: header, preview, tabs, options, then a pinned Done; naming is a second screen */
+.creator.is-portrait {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto clamp(190px, 34%, 400px) auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'top'
+    'preview'
+    'tabs'
+    'opts'
+    'foot';
+}
+.creator.is-naming {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'top'
+    'preview';
+}
+.is-portrait .creator-top {
+  padding: 8px 12px;
+  gap: 8px;
+}
+.is-portrait .creator-top .btn-ghost {
+  padding: 9px 11px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.is-portrait .creator-title .eyebrow,
+.is-portrait .creator-count-text {
+  display: none;
+}
+.is-portrait .creator-title h2 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.is-portrait .creator-count {
+  min-width: 0;
+}
+.is-portrait .sound-toggle.is-compact {
+  margin-left: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.is-portrait .sound-toggle.is-compact span {
+  display: none;
+}
+.is-portrait .preview {
+  padding: 10px 16px 0;
+  gap: 10px;
+}
+.is-portrait .preview-stage {
+  border-radius: 20px;
+}
+.is-portrait .btn-dice {
+  top: 8px;
+  right: 8px;
+  padding: 8px 10px;
+}
+/* tabs: one row of pills that scrolls sideways, fading out at the edges */
+.is-portrait .cat-rail {
+  grid-area: tabs;
+  position: relative;
+  flex-direction: row;
+  gap: 6px;
+  padding: 12px 16px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
+}
+.is-portrait .cat-rail::-webkit-scrollbar,
+.is-portrait .swatch-row::-webkit-scrollbar {
+  display: none;
+}
+.is-portrait .cat {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+}
+.is-portrait .cat.is-on {
+  transform: none;
+  border-color: transparent;
+  box-shadow: 0 3px 0 var(--turmeric-deep);
+}
+.is-portrait .cat-num {
+  display: none;
+}
+.is-portrait .cat-label {
+  font-size: 11px;
+}
+.is-portrait .opt-panel {
+  padding: 0 16px 16px;
+}
+.is-portrait .opt-head {
+  display: none;
+}
+.is-portrait .opt-section {
+  margin-top: 12px;
+}
+.is-portrait .opt-section header {
+  margin-bottom: 8px;
+}
+.is-portrait .tile-grid {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+.is-portrait .tile-label {
+  font-size: 11.5px;
+  padding: 6px 4px 7px;
+}
+/* colours: one strip that scrolls sideways, running to the screen edges */
+.is-portrait .swatch-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: -8px -16px -4px;
+  padding: 8px 16px 10px;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 28px), transparent);
+}
+.is-portrait .swatch {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.is-portrait .btn-next {
+  margin-top: 14px;
+}
+.creator-foot {
+  grid-area: foot;
+  padding: 10px 16px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: rgba(23, 11, 17, 0.6);
+}
+.is-portrait .btn-place {
+  min-height: 52px;
+  font-size: 15px;
+}
+/* naming: the finished Bommai large, its name tag on top, the field and button underneath */
+.is-naming .preview {
+  padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+  gap: 12px;
+}
+.preview-tag {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.preview-tag .nametag {
+  font-size: 15px;
+  padding: 7px 12px;
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-tag .nametag.is-empty {
+  opacity: 0.6;
+}
+
+@media (max-aspect-ratio: 4/5), (max-width: 559px) {
+  .btn-primary,
+  .btn-secondary {
+    min-height: 50px;
+    font-size: 14px;
+    padding: 0 22px;
+  }
+
+  /* home: the signboard centred on top, a status row under it, the main button at the bottom */
+  .hero {
+    top: 10px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .signboard img {
+    width: min(80vw, 360px);
+  }
+  .mode-home .stage::after,
+  .mode-explore .stage::after {
+    width: 100%;
+    height: 280px;
+    background: linear-gradient(180deg, rgba(20, 9, 14, 0.8) 0%, rgba(20, 9, 14, 0.45) 55%, rgba(20, 9, 14, 0) 100%);
+  }
+  .hud-count,
+  .mode-home .view-controls {
+    /* just under the signboard (563 x 260) */
+    top: calc(10px + min(80vw, 360px) * 0.462 + 10px);
+    bottom: auto;
+  }
+  .hud-count {
+    left: 16px;
+    right: auto;
+  }
+  .counter {
+    font-size: 10px;
+    padding: 7px 11px 7px 9px;
+  }
+  .view-controls {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    flex-direction: row;
+    gap: 8px;
+  }
+  .view-controls button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    opacity: 0.8;
+  }
+  .view-controls button span {
+    display: none;
+  }
+  .mode-done .view-controls {
+    top: 14px;
+    bottom: auto;
+  }
+  .cta-row {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .explore-hint {
+    bottom: calc(16px + env(safe-area-inset-bottom) + 66px);
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    white-space: normal;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 14px;
+  }
+  .demo-badge {
+    top: calc(10px + min(80vw, 360px) * 0.462 + 54px);
+    bottom: auto;
+    left: 16px;
+    right: auto;
+    font-size: 10px;
+  }
+
+  /* placing */
+  .place-head {
+    top: 12px;
+    width: calc(100vw - 32px);
+  }
+  .place-head h2 {
+    font-size: 16px;
+  }
+  .place-head p {
+    font-size: 13px;
+  }
+
+  /* done */
+  .celebrate {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .celebrate-card {
+    min-width: calc(100vw - 32px);
+    padding: 16px 16px 14px;
+  }
+  .celebrate-title {
+    font-size: 16px;
+  }
+  .celebrate-actions .btn-primary,
+  .celebrate-actions .btn-secondary {
+    flex: 1;
+    padding: 0 14px;
   }
 }
 

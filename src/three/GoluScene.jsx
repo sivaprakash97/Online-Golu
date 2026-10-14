@@ -8,19 +8,30 @@ import Bommai from './bommai/Bommai.jsx'
 import Petals from './Petals.jsx'
 import SoftEnv from './SoftEnv.jsx'
 import DragLayer from './DragLayer.jsx'
+import { MAX_DPR, PORTRAIT_ASPECT } from '../lib/device.js'
 
 const HELD = new THREE.Vector3(-2.8, 0.02, 2.0) // where your Bommai waits, on the floor in front of the Golu
 const DRAFT_SCALE = 1.25
+// On an upright phone the whole Golu is too small to drop a Bommai on, so placing comes in this
+// much closer and the view pans along the steps as you carry it to an edge (DragLayer).
+const PLACE_ZOOM = 1.5
 
 function shotFor(name, aspect, focus) {
   // pull back on narrow screens so the whole Golu still fits
   const k = Math.max(1.18, 2.1 / aspect) // the bottom step is 14.2 wide
   switch (name) {
-    case 'place':
-      return { pos: [-0.6, 4.3 * k, 11.4 * k], target: [0, 2.2, -2.4] }
+    case 'place': {
+      const z = aspect < PORTRAIT_ASPECT ? k / PLACE_ZOOM : k
+      return { pos: [-0.6, 4.3 * z, 11.4 * z], target: [0, 2.2, -2.4] }
+    }
     case 'focus': {
       const [x, y, z] = focus
-      return { pos: [x * 0.85, y + 1.5, z + 3.6], target: [x, y + 0.5, z] }
+      // an upright phone is narrow: stand further back (and look down a little more, over the
+      // Bommais in front) so the neighbours and the name tag still fit
+      const portrait = aspect < PORTRAIT_ASPECT
+      const m = portrait ? 1.9 : 1
+      const lift = portrait ? 1.5 : 1
+      return { pos: [x - 0.15 * x * m, y + 0.5 + lift * m, z + 3.6 * m], target: [x, y + 0.5, z] }
     }
     case 'home':
     default:
@@ -164,11 +175,16 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
   )
 }
 
+// On an upright phone the camera stands far back, so tags that shrink with distance would be
+// unreadable there: they keep one size instead.
+const usePortrait = () => useThree((s) => s.size.width / s.size.height < PORTRAIT_ASPECT)
+
 // Every Bommai glides to its layout slot, so when someone joins the step the others shuffle over.
 // `spawn` drives the arrival: 'pop' (first load), 'fly' (your placement), 'drop' (someone else, live).
 // `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still selects it.
 // The name tag shows only for the selected Bommai (yours says YOU), and never over the workshop.
 function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLanded }) {
+  const portrait = usePortrait()
   const ref = useRef()
   const inner = useRef()
   const st = useRef({ phase: spawn ? 'wait' : 'idle', start: null, from: null, landedAt: null })
@@ -258,7 +274,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
         <Bommai config={b} phaseKey={b.id} />
       </group>
       {showTag && (
-        <Html position={[0, 1.32, 0]} center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 1.32, 0]} center distanceFactor={portrait ? undefined : 9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div className={`nametag ${isMine ? 'mine' : ''}`}>
             {isMine && <span className="nametag-you">YOU</span>}
             {b.name || 'A friend'}
@@ -271,6 +287,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
 
 // Your new Bommai waiting on the kolam: hops a little until you pick it up and drag it onto a step.
 function DraftOnKolam({ draft, onGrab }) {
+  const portrait = usePortrait()
   const ref = useRef()
   useFrame(({ clock }, dt) => {
     const g = ref.current
@@ -289,7 +306,7 @@ function DraftOnKolam({ draft, onGrab }) {
       onPointerDown={onGrab}
     >
       <Bommai config={draft} idle={false} />
-      <Html position={[0, 1.25, 0]} center distanceFactor={6} style={{ pointerEvents: 'none' }}>
+      <Html position={[0, 1.25, 0]} center distanceFactor={portrait ? undefined : 6} style={{ pointerEvents: 'none' }}>
         <div className="nametag mine">
           <span className="nametag-you">YOU</span>
           {draft.name || 'Your Bommai'}
@@ -363,7 +380,7 @@ export default function GoluScene({
   return (
     <Canvas
       shadows
-      dpr={[1, 2]}
+      dpr={[1, MAX_DPR]}
       frameloop={paused ? 'never' : 'always'}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       camera={{ fov: 34, position: [0, 4.4, 14], near: 0.1, far: 80 }}
@@ -396,6 +413,7 @@ export default function GoluScene({
           ref={drag}
           bommais={bommais}
           showMarkers={placing}
+          edgePan={placing}
           onDrop={onDropBommai}
           onReject={onReject}
           onDragChange={onDragChange}
