@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// Phone-sized screens, either way up. They get the "best on a computer" note and a lighter render.
+// Phone-sized screens, either way up. They get a lighter render.
 export const SMALL_SCREEN = '(max-width: 899px), (max-height: 499px)'
 // Upright screens (a phone held in portrait): the workshop stacks into one column, naming becomes
 // its own step, and placing zooms in on the steps. Anything under 560px wide counts too, so the
