@@ -457,67 +457,55 @@ input:focus-visible {
 }
 
 /* ---------- carousel (more than one Golu) ---------- */
-/* an arrow at each side turns the stage; the Golu it turns to is named underneath */
+/* round arrows either side of the main button turn the stage; the Golu they turn to is named
+   underneath. When the Golu facing you is full, the one pointing at a Golu with room pulses. */
 .golu-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  padding: 6px;
-  animation: fade 0.9s 0.4s both;
-}
-.golu-arrow.is-left {
-  left: clamp(6px, 2vw, 28px);
-}
-.golu-arrow.is-right {
-  right: clamp(6px, 2vw, 28px);
-}
-.golu-arrow-icon {
+  position: relative;
+  flex: none;
   width: 54px;
   height: 54px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--turmeric);
-  background: rgba(20, 10, 15, 0.66);
-  border: 1.5px solid var(--line);
-  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.7);
-  transition: transform 0.15s ease, background 0.15s, border-color 0.15s;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: 0 5px 0 #b99e78, 0 14px 30px -12px rgba(0, 0, 0, 0.6);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.golu-arrow:hover .golu-arrow-icon,
-.golu-arrow:focus-visible .golu-arrow-icon {
-  background: rgba(20, 10, 15, 0.88);
-  border-color: var(--turmeric);
-  transform: scale(1.07);
+.golu-arrow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 #b99e78, 0 18px 34px -12px rgba(0, 0, 0, 0.6);
 }
-.golu-arrow:active .golu-arrow-icon {
-  transform: scale(0.93);
+.golu-arrow:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #b99e78;
+}
+.golu-arrow.is-roomy {
+  animation: beckon 1.6s ease-out infinite;
 }
 .golu-arrow-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 5px 10px;
-  border-radius: 12px;
-  background: rgba(20, 10, 15, 0.66);
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--display);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--ink-2);
   white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
-.golu-arrow-label small {
-  font-family: var(--body);
-  font-size: 11px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--turmeric);
+@keyframes beckon {
+  0% {
+    box-shadow: 0 5px 0 #b99e78, 0 0 0 0 rgba(244, 189, 56, 0.75);
+  }
+  70%,
+  100% {
+    box-shadow: 0 5px 0 #b99e78, 0 0 0 14px rgba(244, 189, 56, 0);
+  }
 }
 /* which Golu is facing you */
 .golu-now {
@@ -953,9 +941,9 @@ input:focus-visible {
 
 /* ---------- compact landscape (phones on their side) ---------- */
 @media (max-height: 520px) and (min-width: 560px) {
-  .golu-arrow-icon {
-    width: 44px;
-    height: 44px;
+  .golu-arrow {
+    width: 46px;
+    height: 46px;
   }
   .golu-arrow-label {
     display: none;
@@ -1215,29 +1203,23 @@ input:focus-visible {
 }
 
 @media (max-aspect-ratio: 4/5), (max-width: 559px) {
-  /* the carousel: slimmer arrows at the very edges, down beside the floor so their labels don't
-     cover the Bommais, and the Golu's name under the status row */
+  /* the carousel: the arrows hug the main button (no room for their labels under it), and the
+     Golu's name sits under the status row */
+  /* scaled to the screen so even Find my Bommai + Edit between the arrows fits a 320px phone */
   .golu-arrow {
-    top: 60%;
-    padding: 2px;
-    gap: 5px;
-  }
-  .golu-arrow.is-left {
-    left: 4px;
-  }
-  .golu-arrow.is-right {
-    right: 4px;
-  }
-  .golu-arrow-icon {
-    width: 44px;
-    height: 44px;
+    width: clamp(42px, 12vw, 50px);
+    height: clamp(42px, 12vw, 50px);
   }
   .golu-arrow-label {
-    font-size: 9px;
-    padding: 4px 7px;
+    display: none;
   }
-  .golu-arrow-label small {
-    font-size: 10px;
+  .cta-row:has(.golu-arrow) {
+    gap: clamp(5px, 1.6vw, 8px);
+  }
+  .cta-row:has(.golu-arrow) .btn-primary,
+  .cta-row:has(.golu-arrow) .btn-secondary {
+    font-size: clamp(11px, 3.3vw, 14px);
+    padding: 0 clamp(10px, 3vw, 16px);
   }
   .golu-now {
     top: calc(10px + min(80vw, 360px) * 0.462 + 54px);

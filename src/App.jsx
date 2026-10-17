@@ -3,7 +3,7 @@ import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
-import GoluNav from './ui/GoluNav.jsx'
+import { GoluArrow, GoluNow } from './ui/GoluNav.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options.js'
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
@@ -334,18 +334,21 @@ export default function App() {
             <div className="hud-count">
               <Counter n={count} live={live} />
             </div>
+            {/* the turn arrows flank the main button, so the other Golus are hard to miss */}
             <div className="cta-row">
+              <GoluArrow dir={-1} count={golus} active={active} free={free} onTurn={turnBy} />
               {mainCta}
               {mine && (
                 <button className="btn-secondary" onClick={startEdit}>
                   Edit
                 </button>
               )}
+              <GoluArrow dir={1} count={golus} active={active} free={free} onTurn={turnBy} />
             </div>
             <p className="explore-hint">
               {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around{golus > 1 ? ', further to turn the Golu' : ''} · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
             </p>
-            <GoluNav count={golus} active={active} free={free} onTurn={turnBy} />
+            <GoluNow count={golus} active={active} free={free} />
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">
               <SoundToggle />
@@ -388,11 +391,12 @@ export default function App() {
                     : 'Every Golu is full.'}
               </p>
             </header>
-            <GoluNav count={golus} active={active} free={free} onTurn={turnBy} title={false} />
             <div className="cta-row">
+              <GoluArrow dir={-1} count={golus} active={active} free={free} onTurn={turnBy} />
               <button className="btn-secondary" onClick={() => setMode('create')}>
                 ← Edit
               </button>
+              <GoluArrow dir={1} count={golus} active={active} free={free} onTurn={turnBy} />
             </div>
           </>
         )}

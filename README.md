@@ -6,7 +6,7 @@ A community Bommai Golu on the web. Anyone can make a little customizable Golu d
 
 **Getting around the Golu** (works as soon as the page opens): drag to look around, two-finger scroll to move, pinch (or a mouse wheel) to zoom, and the **+ / − / Reset view** buttons in the corner. Movement is limited to a box around the Golu so it can't drift out of view (`BOUNDS` and the angle/distance limits in `CameraRig`, `src/three/GoluScene.jsx`).
 
-**Turning to the other Golus:** the arrows at the sides of the screen (each names the Golu it turns to and how many spots it has left), the ← / → keys, or dragging on past the edge of the look-around: the stage follows your finger, and letting go far enough along (or flicking) turns it to the next Golu. A label at the top says which Golu is facing you.
+**Turning to the other Golus:** the round arrows either side of the main button (they pulse when the Golu facing you is full and the other way has room), the ← / → keys, or dragging on past the edge of the look-around: the stage follows your finger, and letting go far enough along (or flicking) turns it to the next Golu. A label at the top says which Golu is facing you.
 
 ## Run it
 
