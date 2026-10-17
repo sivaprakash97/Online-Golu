@@ -80,13 +80,16 @@ const Carousel = forwardRef(function Carousel({ count, turn, onTurning, renderGo
     },
   }))
 
-  useFrame(({ clock }) => {
+  // Timed by the page's clock, not R3F's: R3F resets its clock to 0 whenever the scene is paused and
+  // resumed (as it is while the workshop is open), and a turn started before that would otherwise
+  // find itself far in the future and spin the stage round and round until the clock caught up.
+  useFrame(() => {
     const s = st.current
-    const now = clock.elapsedTime
+    const now = performance.now() / 1000
     if (s.t0 === null) s.t0 = now
     if (s.dragging) s.value = s.to + s.offset
     else {
-      const k = s.dur > 0 ? Math.min(1, (now - s.t0) / s.dur) : 1
+      const k = s.dur > 0 ? Math.min(1, Math.max(0, (now - s.t0) / s.dur)) : 1
       s.value = k >= 1 ? s.to : s.from + (s.to - s.from) * ease(k)
     }
     const moving = s.dragging || s.value !== s.to

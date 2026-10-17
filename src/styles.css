@@ -369,6 +369,12 @@ input:focus-visible {
   text-align: center;
   animation: pop 0.3s both;
 }
+/* the waiting Bommai's tag can be grabbed to pick the doll up (GoluScene.jsx, DraftOnKolam) */
+.draft-tag {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
 /* a tag that sits on its anchor point instead of being centred on it (fixed-size tags on phones) */
 .tag-above {
   transform: translateY(-50%);
