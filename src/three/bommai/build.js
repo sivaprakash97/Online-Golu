@@ -46,7 +46,7 @@ export function resolveLook(cfg) {
     o,
     skin: LOOKUP.skin[cfg.skin_tone].color,
     hair: LOOKUP.hairColor[cfg.hair_color].color,
-    hijab: cfg.hair === HIJAB.id ? HIJAB.color : null,
+    hijab: cfg.headwear === HIJAB.id ? HIJAB.color : null,
     main,
     pair,
     mainFn: patterned(o.pattern, main),
@@ -584,7 +584,7 @@ export function buildBommai(cfg) {
   // head: a big box with softly rounded edges
   head.rounded(-HW, HW, HEAD0, HEAD1, -HD, HD, 4, L.skin)
   faceOn(head, cfg, L)
-  hairOn(head, cfg, L, { hatted: HATS.includes(cfg.accessory) })
+  hairOn(head, cfg, L, { hatted: HATS.includes(cfg.headwear) })
 
   const anchors = {
     lean: [handSide > 0 ? half + 2 : -half - 3, 30, 0],
@@ -597,9 +597,11 @@ export function buildBommai(cfg) {
     ground: [34, 0, 2],
   }
   if (mode) {
-    const target = mode === 'ground' ? floor : mode === 'head' ? (acc.id === 'cloud' ? part('float', [0, 0, 0]) : head) : ['up', 'lean', 'tuck'].includes(mode) ? arms[handSide] : upper
+    const target = mode === 'ground' ? floor : ['up', 'lean', 'tuck'].includes(mode) ? arms[handSide] : upper
     itemAt(target, acc.id, mode, anchors, { L, B, side: handSide })
   }
+  // headwear is its own choice, so it goes with whatever is carried (the hijab is drawn with the head and body)
+  if (cfg.headwear !== 'none' && !L.hijab) itemAt(cfg.headwear === 'cloud' ? part('float', [0, 0, 0]) : head, cfg.headwear, 'head', anchors, { L, B })
 
   const armPose = (side) => {
     if (pose === 'namaste') return 'namaste'

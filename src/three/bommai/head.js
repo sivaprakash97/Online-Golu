@@ -110,7 +110,7 @@ export function faceOn(g, cfg, L) {
     }
     g.box(-6, 6, 61, 62, FZ + 1, FZ + 2, f) // bridge
     // under a hijab the temples tuck in at the edge of the face
-    if (cfg.hair === 'hijab') return g.box(-17, 17, 61, 62, FZ + 1, FZ + 2, (x) => (x === -17 || x === 16 ? f : null))
+    if (L.hijab) return g.box(-17, 17, 61, 62, FZ + 1, FZ + 2, (x) => (x === -17 || x === 16 ? f : null))
     for (const x of [-HW - 1, HW]) g.box(x, x + 1, 61, 62, 0, FZ + 2, f) // temples
     for (const x of [-HW, HW - 1]) g.box(x, x + 1, 61, 62, FZ - 2, FZ + 2, f)
   }
@@ -149,7 +149,6 @@ const STYLES = {
   'low-bun': { fringe: 'sleek', side: 58, back: 50, bun: 'low' },
   ponytail: { fringe: 'side', side: 64, back: 56, tail: true },
   puffs: { fringe: 'straight', side: 66, back: 56, puffs: true },
-  hijab: { hijab: true },
 }
 
 const JASMINE = '#fbfbf0'
@@ -207,9 +206,9 @@ function hijabOn(g, L) {
 }
 
 export function hairOn(g, cfg, L, { hatted = false } = {}) {
+  if (L.hijab) return hijabOn(g, L)
   const st = STYLES[cfg.hair]
   if (!st) return
-  if (st.hijab) return hijabOn(g, L)
   const c = L.hair
   const dark = shade(c, -0.08)
   const light = shade(c, 0.07)

@@ -34,9 +34,6 @@ export const HAIR_STYLES = [
   { id: 'puffs', label: 'Twin puffs' },
   { id: 'bald', label: 'Shaved' },
 ]
-// A hijab is worn in place of a hairstyle, so it's stored in hair, but it's picked under
-// Accessories, not with the hairstyles. It's always black.
-export const HIJAB = { id: 'hijab', label: 'Hijab', color: '#24222a' }
 
 export const HAIR_COLORS = [
   { id: 'black', color: '#1f1a1c' },
@@ -111,8 +108,23 @@ export const FACE_EXTRAS = [
   { id: 'nosering', label: 'Nose ring' },
 ]
 
-// hold: hand (right hand), both (in front, both hands), side (carried at the side), head, back,
-// ground (next to the pedestal)
+// What goes on the head. It's a choice of its own, apart from what's carried, so a Bommai can wear
+// a cap and hold a guitar. The hijab covers the hair (which is kept, for when it comes off); it's
+// always black.
+export const HIJAB = { id: 'hijab', label: 'Hijab', color: '#24222a' }
+export const HEADWEAR = [
+  { id: 'none', label: 'None' },
+  { id: 'cap', label: 'Cap' },
+  { id: 'beanie', label: 'Beanie' },
+  { id: 'fedora', label: 'Hat' },
+  { id: 'kufi', label: 'Kufi' },
+  HIJAB,
+  { id: 'headphones', label: 'Headphones' },
+  { id: 'cloud', label: 'Little cloud' },
+]
+
+// What's carried. hold: hand (right hand), both (in front, both hands), side (carried at the side),
+// back, ground (next to the pedestal)
 export const ACCESSORIES = [
   { id: 'none', label: 'Nothing', hold: null },
   { id: 'filter-coffee', label: 'Filter coffee', hold: 'hand' },
@@ -127,12 +139,6 @@ export const ACCESSORIES = [
   { id: 'guitar', label: 'Guitar', hold: 'both' },
   { id: 'veena', label: 'Veena', hold: 'both' },
   { id: 'skateboard', label: 'Skateboard', hold: 'side' },
-  { id: 'cap', label: 'Cap', hold: 'head' },
-  { id: 'beanie', label: 'Beanie', hold: 'head' },
-  { id: 'fedora', label: 'Hat', hold: 'head' },
-  { id: 'kufi', label: 'Kufi', hold: 'head' },
-  { id: 'headphones', label: 'Headphones', hold: 'head' },
-  { id: 'cloud', label: 'Little cloud', hold: 'head' },
   { id: 'backpack', label: 'Backpack', hold: 'back' },
   { id: 'easel', label: 'Easel', hold: 'ground' },
   { id: 'plant', label: 'Plant', hold: 'ground' },
@@ -163,19 +169,21 @@ export const DEFAULT_CONFIG = {
   outfit_color: 'kumkum',
   face: 'round',
   face_extras: ['bindi'],
+  headwear: 'none',
   accessory: 'filter-coffee',
   pose: 'standing',
 }
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
-// Hats sit on the hair, so a Bommai wears one of these or a hijab, not both.
+// Headwear that sits on the hair, so hair that would poke through it is left out.
 export const HATS = ['cap', 'beanie', 'fedora', 'kufi']
 
 export function randomConfig(name = '') {
   const outfit = pick(OUTFITS)
   // an abaya comes with a hijab, a salwar or sharara sometimes; no other outfit gets one by chance
   const hijab = outfit.id === 'abaya' || (['salwar', 'sharara'].includes(outfit.id) && Math.random() < 0.35)
+  const hats = HEADWEAR.filter((h) => h.id !== 'none' && h.id !== HIJAB.id)
   let extras = FACE_EXTRAS.filter(() => Math.random() < 0.18).map((e) => e.id)
   if (hijab) extras = extras.filter((e) => !['bindi', 'namam', 'mustache', 'beard'].includes(e))
   // keep it readable: never both glasses kinds
@@ -184,13 +192,14 @@ export function randomConfig(name = '') {
     name,
     body: pick(BODIES).id,
     skin_tone: pick(SKIN_TONES).id,
-    hair: hijab ? HIJAB.id : pick(HAIR_STYLES).id,
+    hair: pick(HAIR_STYLES).id,
     hair_color: Math.random() < 0.7 ? pick(HAIR_COLORS.slice(0, 3)).id : pick(HAIR_COLORS).id,
     outfit: outfit.id,
     outfit_color: Math.random() < 0.5 ? outfit.color : pick(OUTFIT_COLORS).id,
     face: pick(EYES).id,
     face_extras,
-    accessory: pick(ACCESSORIES.slice(1).filter((a) => !hijab || !HATS.includes(a.id))).id,
+    headwear: hijab ? HIJAB.id : Math.random() < 0.25 ? pick(hats).id : 'none',
+    accessory: pick(ACCESSORIES.slice(1)).id,
     pose: pick(POSES).id,
   }
 }
@@ -199,11 +208,12 @@ const byId = (arr) => Object.fromEntries(arr.map((o) => [o.id, o]))
 export const LOOKUP = {
   skin: byId(SKIN_TONES),
   body: byId(BODIES),
-  hair: byId([...HAIR_STYLES, HIJAB]),
+  hair: byId(HAIR_STYLES),
   hairColor: byId(HAIR_COLORS),
   outfit: byId(OUTFITS),
   outfitColor: byId(OUTFIT_COLORS),
   eyes: byId(EYES),
+  headwear: byId(HEADWEAR),
   accessory: byId(ACCESSORIES),
   pose: byId(POSES),
 }
@@ -212,22 +222,34 @@ export const LOOKUP = {
 export const pairColor = (colorId) => LOOKUP.outfitColor[LOOKUP.outfitColor[colorId]?.pair]?.color
 export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit[outfitId]?.top)
 
+// The database has one accessory column, so the headwear and what's carried share it: 'cap+guitar',
+// or just 'cap' or 'guitar'. Rows from before they were split hold a single id, which still reads
+// correctly.
+export const packAccessory = (headwear, accessory) => [headwear, accessory].filter((v) => v && v !== 'none').join('+') || 'none'
+function unpackAccessory(v) {
+  const [a, b] = String(v || '').split('+')
+  if (b !== undefined) return [a, b]
+  return LOOKUP.headwear[a] && a !== 'none' ? [a, 'none'] : ['none', a]
+}
+
 // Unknown ids (e.g. an option removed later) fall back to defaults so old rows still render.
 export function normalizeConfig(c = {}) {
   const ok = (table, v, d) => (v && table[v] ? v : d)
   const D = DEFAULT_CONFIG
-  const hair = ok(LOOKUP.hair, c.hair, D.hair)
+  // headwear comes apart from the accessory column when read from the database (see packAccessory)
+  const [head, held] = c.headwear === undefined ? unpackAccessory(c.accessory) : [c.headwear, c.accessory]
   return {
     name: (c.name || '').slice(0, 24),
     body: ok(LOOKUP.body, c.body, D.body),
     skin_tone: ok(LOOKUP.skin, c.skin_tone, D.skin_tone),
-    hair,
+    hair: ok(LOOKUP.hair, c.hair, D.hair),
     hair_color: ok(LOOKUP.hairColor, c.hair_color, D.hair_color),
     outfit: ok(LOOKUP.outfit, RETIRED_OUTFITS[c.outfit] || c.outfit, D.outfit),
     outfit_color: ok(LOOKUP.outfitColor, c.outfit_color, D.outfit_color),
     face: ok(LOOKUP.eyes, c.face, D.face),
     face_extras: Array.isArray(c.face_extras) ? c.face_extras.filter((e) => FACE_EXTRAS.some((f) => f.id === e)) : [],
-    accessory: ok(LOOKUP.accessory, c.accessory, 'none'),
+    headwear: ok(LOOKUP.headwear, head, 'none'),
+    accessory: ok(LOOKUP.accessory, held, 'none'),
     pose: ok(LOOKUP.pose, c.pose, D.pose),
   }
 }

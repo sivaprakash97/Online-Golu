@@ -18,13 +18,12 @@ import {
   OUTFIT_COLORS,
   EYES,
   FACE_EXTRAS,
+  HEADWEAR,
   ACCESSORIES,
-  HATS,
   POSES,
   randomConfig,
   pairColor,
   showsPair,
-  DEFAULT_CONFIG,
 } from '../data/options.js'
 
 const CATEGORIES = [
@@ -79,31 +78,16 @@ function Section({ title, children, aside }) {
 }
 
 function Options({ cat, config, set }) {
-  // A hijab is picked under Accessories, but it's stored in place of the hairstyle (see HIJAB), so
-  // the hairstyle it covers is kept aside to come back when it's taken off. It goes on the head, so
-  // it and a hat (or kufi) take each other off.
-  const hijab = config.hair === HIJAB.id
-  const under = useRef(DEFAULT_CONFIG.hair)
-  const bareHair = hijab ? under.current : config.hair
-  const wearHijab = (on, extra = {}) => {
-    if (on === hijab) return
-    if (on) {
-      under.current = config.hair
-      // the bindi (every new Bommai starts with one) and vibhuti come off; they can go back on under Face
-      set({
-        hair: HIJAB.id,
-        face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam'),
-        ...(HATS.includes(config.accessory) ? { accessory: 'none' } : {}),
-      })
-    } else set({ hair: bareHair, ...extra })
-  }
-  const grid = (items, field, frame) => (
+  const grid = (items, field, frame, pick = (id) => set({ [field]: id })) => (
     <div className="tile-grid">
       {items.map((o) => (
-        <Tile key={o.id} label={o.label} frame={frame} config={{ ...config, [field]: o.id }} selected={config[field] === o.id} onClick={() => set({ [field]: o.id })} />
+        <Tile key={o.id} label={o.label} frame={frame} config={{ ...config, [field]: o.id }} selected={config[field] === o.id} onClick={() => pick(o.id)} />
       ))}
     </div>
   )
+  // putting on a hijab takes off the bindi (every new Bommai starts with one) and vibhuti; they can
+  // go back on under Face
+  const setHeadwear = (id) => set({ headwear: id, ...(id === HIJAB.id ? { face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam') } : {}) })
   switch (cat) {
     case 'body':
       return (
@@ -115,9 +99,9 @@ function Options({ cat, config, set }) {
         </>
       )
     case 'hair':
-      if (hijab) return <p className="hint">The hijab covers the hair. To style the hair, take the hijab off under Accessories.</p>
       return (
         <>
+          {config.headwear === HIJAB.id && <p className="hint">Your hijab is covering the hair. Take it off under Accessories to see it.</p>}
           <Section title="Colour">
             <Swatches items={HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hair colour" />
           </Section>
@@ -175,39 +159,13 @@ function Options({ cat, config, set }) {
           </Section>
         </>
       )
-    case 'accessory': {
-      // hats are shown over the bare hair, and wearing one takes the hijab off
-      const tile = (o) => {
-        const hat = HATS.includes(o.id)
-        return (
-          <Tile
-            key={o.id}
-            label={o.label}
-            frame="full"
-            config={{ ...config, accessory: o.id, ...(hat ? { hair: bareHair } : {}) }}
-            selected={config.accessory === o.id}
-            onClick={() => (hat && hijab ? wearHijab(false, { accessory: o.id }) : set({ accessory: o.id }))}
-          />
-        )
-      }
-      // the hijab goes with the hats; it can be worn with anything held, so its tile toggles
-      const hijabTile = (
-        <Tile
-          key={HIJAB.id}
-          multi
-          label={HIJAB.label}
-          frame="full"
-          config={{ ...config, hair: HIJAB.id, ...(HATS.includes(config.accessory) ? { accessory: 'none' } : {}) }}
-          selected={hijab}
-          onClick={() => wearHijab(!hijab)}
-        />
-      )
+    case 'accessory':
       return (
-        <Section title="Carry something">
-          <div className="tile-grid">{ACCESSORIES.flatMap((o) => (o.id === 'kufi' ? [tile(o), hijabTile] : [tile(o)]))}</div>
-        </Section>
+        <>
+          <Section title="Headwear">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</Section>
+          <Section title="Carry something">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+        </>
       )
-    }
     case 'pose':
       return <Section title="Pose">{grid(POSES, 'pose', 'full')}</Section>
     default:
