@@ -9,6 +9,7 @@ import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
+import { trackEvent } from './lib/analytics.js'
 import { TOUCH, useMedia } from './lib/device.js'
 
 const MINE_KEY = 'golu.mine'
@@ -130,6 +131,7 @@ export default function App() {
     setFocusId(null)
     setTagId(null)
     setMode('create')
+    trackEvent('workshop_opened')
   }
 
   const placeError = (e) => {
@@ -158,6 +160,7 @@ export default function App() {
         writeMine(mine)
         setJustPlaced(row)
         setMode('placing')
+        trackEvent('bommai_placed', { golu: row.golu, step })
         const p = slotPos(step, slot)
         setCelebrate({ key: row.id, at: [p.x, p.y, p.z] })
         setTimeout(() => setMode('done'), 1500)
@@ -174,6 +177,7 @@ export default function App() {
     setBommais((list) => list.map((b) => (b.id === item.id ? { ...b, step, slot } : b)))
     try {
       await moveBommai(item.id, step, slot)
+      trackEvent('bommai_moved', { golu: before.golu, step })
       return true
     } catch (e) {
       setBommais((list) => list.map((b) => (b.id === item.id ? before : b)))
@@ -191,6 +195,7 @@ export default function App() {
     const id = justPlaced?.id || myIds[myIds.length - 1]
     // a sandbox Bommai lives only in this tab, so share the Golu itself
     const res = await share(SANDBOX ? null : id, justPlaced?.name)
+    if (res !== 'cancelled' && res !== 'failed') trackEvent('bommai_shared', { how: res })
     if (res === 'copied') showToast('Link copied. Send it to a friend!')
     else if (res === 'failed') showToast('Could not share from this browser.')
   }
@@ -263,6 +268,7 @@ export default function App() {
     try {
       const row = await updateBommai(id, cfg)
       setBommais((list) => list.map((b) => (b.id === id ? row : b)))
+      trackEvent('bommai_edited')
       showToast('Your Bommai has its new look.')
     } catch (e) {
       console.error(e)

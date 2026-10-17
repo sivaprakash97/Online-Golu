@@ -24,6 +24,10 @@ Without Supabase env vars the app runs on an in-memory store seeded with the dem
 
 Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set. Every PR gets a preview deployment (visible to the Vercel account owner), and `main` deploys to production at the public `internet-golu` vercel.app domain.
 
+### Analytics
+
+Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />` in `src/main.jsx` counts page views, and `trackEvent` in `src/lib/analytics.js` sends the custom events `workshop_opened`, `bommai_placed` (with `golu` and `step`), `bommai_moved`, `bommai_edited` and `bommai_shared`. Nothing is counted from `?sandbox`. Custom events show up under the Events tab on a Vercel Pro plan.
+
 ## How it's built
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.
