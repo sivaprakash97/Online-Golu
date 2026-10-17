@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import Bommai from './bommai/Bommai.jsx'
 import { Torus, Disc } from './prims.jsx'
 import { GOLU, slotPos, freeSlots, pickStep } from './golu/layout.js'
-import { LOOKUP, OPEN_STEPS } from '../data/options.js'
+import { LOOKUP, OPEN_STEPS, SPOTS_PER_GOLU } from '../data/options.js'
 
 // Drag and drop for Bommais, picked up by the head.
 // press(event, item) starts a gesture on a doll; past a few pixels it becomes a drag. The doll then
@@ -35,18 +35,72 @@ const baseFor = (config, step, slot) => {
   return [p.x, p.y, p.z]
 }
 
-// Glowing rings on every free spot; the one under the pointer swells.
-function SlotMarker({ at, active }) {
-  const ref = useRef()
+// Free spots. On a crowded Golu (`tall`: half its spots or fewer left) the dolls on the step below
+// hide a spot's ring, so each free spot also sends up a soft column of light and has a little gold
+// diamond bobbing above head height, where nothing stands in front of it. On a roomy Golu the rings
+// are easy to see and only the spot under the pointer lights up. It swells and burns brighter.
+const BEAM_H = 1.15
+const PIN_Y = 1.32 // above the heads of the dolls one step down
+let markerParts
+function getMarkerParts() {
+  if (markerParts) return markerParts
+  // fades from the step upward (a cylinder's uv.y runs 0 at the bottom to 1 at the top; alphaMap reads green)
+  const n = 32
+  const data = new Uint8Array(n * 4)
+  for (let i = 0; i < n; i++) data.set([255, Math.round(255 * Math.pow(1 - i / (n - 1), 1.6)), 255, 255], i * 4)
+  const fade = new THREE.DataTexture(data, 1, n)
+  fade.needsUpdate = true
+  const beam = (opacity) =>
+    new THREE.MeshBasicMaterial({ color: '#ffc23a', alphaMap: fade, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })
+  // a soft round glow behind the diamond
+  const m = 32
+  const halo = new Uint8Array(m * m * 4)
+  for (let y = 0; y < m; y++)
+    for (let x = 0; x < m; x++) {
+      const r = Math.hypot(x - (m - 1) / 2, y - (m - 1) / 2) / (m / 2)
+      halo.set([255, 200, 80, Math.round(255 * Math.pow(Math.max(0, 1 - r), 2))], (y * m + x) * 4)
+    }
+  const haloTex = new THREE.DataTexture(halo, m, m)
+  haloTex.needsUpdate = true
+  const pinGeo = new THREE.OctahedronGeometry(0.13, 0)
+  pinGeo.scale(1, 1.6, 1)
+  markerParts = {
+    beamGeo: new THREE.CylinderGeometry(0.22, 0.22, BEAM_H, 20, 1, true).translate(0, BEAM_H / 2, 0),
+    beam: beam(0.5),
+    beamHot: beam(1),
+    pinGeo,
+    pin: new THREE.MeshStandardMaterial({ color: '#ffe08a', emissive: '#ffb300', emissiveIntensity: 1.2, roughness: 0.35, metalness: 0.3, flatShading: true }),
+    halo: new THREE.SpriteMaterial({ map: haloTex, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.9 }),
+  }
+  return markerParts
+}
+
+function SlotMarker({ at, active, tall }) {
+  const ring = useRef()
+  const pin = useRef()
+  const parts = getMarkerParts()
   useFrame(({ clock }) => {
-    if (!ref.current) return
-    const s = (active ? 1.35 : 1) + Math.sin(clock.elapsedTime * 4 + at[0]) * 0.05
-    ref.current.scale.set(s, s, s)
+    const t = clock.elapsedTime
+    if (ring.current) ring.current.scale.setScalar((active ? 1.35 : 1) + Math.sin(t * 4 + at[0]) * 0.05)
+    if (pin.current) {
+      pin.current.position.y = PIN_Y + Math.sin(t * 3 + at[0] * 1.7) * 0.06 + (active ? 0.08 : 0)
+      pin.current.rotation.y = t * 1.6 + at[0]
+      pin.current.scale.setScalar(active ? 1.35 : 1)
+    }
   })
   return (
-    <group ref={ref} position={[at[0], at[1] + 0.03, at[2]]}>
-      <Torus r={0.26} t={0.022} rs={6} ts={32} rotation={[Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: active ? 2 : 0.9 }} shadow={false} />
-      {active && <Disc r={0.25} s={32} rotation={[-Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: 0.8, opacity: 0.35 }} />}
+    <group position={[at[0], at[1] + 0.03, at[2]]}>
+      <group ref={ring}>
+        <Torus r={0.26} t={0.026} rs={6} ts={32} rotation={[Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: active ? 2 : 1.1 }} shadow={false} />
+        <Disc r={0.25} s={32} rotation={[-Math.PI / 2, 0, 0]} color="#ffcf5a" mat={{ emissive: '#ffb300', emissiveIntensity: 0.8, opacity: active ? 0.4 : 0.18 }} />
+      </group>
+      {(tall || active) && <mesh geometry={parts.beamGeo} material={active ? parts.beamHot : parts.beam} renderOrder={2} />}
+      {tall && (
+        <group ref={pin} position={[0, PIN_Y, 0]}>
+          <mesh geometry={parts.pinGeo} material={parts.pin} />
+          <sprite material={parts.halo} scale={0.7} renderOrder={3} />
+        </group>
+      )}
     </group>
   )
 }
@@ -334,7 +388,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, lens, on
   return (
     <>
       {markers.map((m) => (
-        <SlotMarker key={`${m.k}-${m.slot}`} at={m.at} active={hover?.step === m.k && hover?.slot === m.slot} />
+        <SlotMarker key={`${m.k}-${m.slot}`} at={m.at} active={hover?.step === m.k && hover?.slot === m.slot} tall={markers.length <= SPOTS_PER_GOLU / 2} />
       ))}
       {hover?.reserved && <ReservedGlow step={hover.step} />}
       {drag && (

@@ -456,6 +456,118 @@ input:focus-visible {
   color: var(--paper-ink);
 }
 
+/* ---------- carousel (more than one Golu) ---------- */
+/* an arrow at each side turns the stage; the Golu it turns to is named underneath */
+.golu-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 6px;
+  animation: fade 0.9s 0.4s both;
+}
+.golu-arrow.is-left {
+  left: clamp(6px, 2vw, 28px);
+}
+.golu-arrow.is-right {
+  right: clamp(6px, 2vw, 28px);
+}
+.golu-arrow-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--turmeric);
+  background: rgba(20, 10, 15, 0.66);
+  border: 1.5px solid var(--line);
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.7);
+  transition: transform 0.15s ease, background 0.15s, border-color 0.15s;
+}
+.golu-arrow:hover .golu-arrow-icon,
+.golu-arrow:focus-visible .golu-arrow-icon {
+  background: rgba(20, 10, 15, 0.88);
+  border-color: var(--turmeric);
+  transform: scale(1.07);
+}
+.golu-arrow:active .golu-arrow-icon {
+  transform: scale(0.93);
+}
+.golu-arrow-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: rgba(20, 10, 15, 0.66);
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.golu-arrow-label small {
+  font-family: var(--body);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--turmeric);
+}
+/* which Golu is facing you */
+.golu-now {
+  --tx: -50%;
+  position: absolute;
+  top: clamp(16px, 4vh, 40px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: rgba(20, 10, 15, 0.55);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rise 0.9s 0.15s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+.golu-now b {
+  color: var(--turmeric);
+  font-size: 13px;
+}
+.golu-now-free {
+  font-family: var(--body);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.golu-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+.golu-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 243, 224, 0.28);
+  transition: background 0.2s;
+}
+.golu-dots i.on {
+  background: var(--turmeric);
+}
+
 .toast {
   position: absolute;
   top: 20px;
@@ -841,6 +953,13 @@ input:focus-visible {
 
 /* ---------- compact landscape (phones on their side) ---------- */
 @media (max-height: 520px) and (min-width: 560px) {
+  .golu-arrow-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .golu-arrow-label {
+    display: none;
+  }
   .signboard img {
     width: 240px;
   }
@@ -1096,6 +1215,36 @@ input:focus-visible {
 }
 
 @media (max-aspect-ratio: 4/5), (max-width: 559px) {
+  /* the carousel: slimmer arrows at the very edges, down beside the floor so their labels don't
+     cover the Bommais, and the Golu's name under the status row */
+  .golu-arrow {
+    top: 60%;
+    padding: 2px;
+    gap: 5px;
+  }
+  .golu-arrow.is-left {
+    left: 4px;
+  }
+  .golu-arrow.is-right {
+    right: 4px;
+  }
+  .golu-arrow-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .golu-arrow-label {
+    font-size: 9px;
+    padding: 4px 7px;
+  }
+  .golu-arrow-label small {
+    font-size: 10px;
+  }
+  .golu-now {
+    top: calc(10px + min(80vw, 360px) * 0.462 + 54px);
+    font-size: 10px;
+    padding: 6px 12px;
+    gap: 8px;
+  }
   .btn-primary,
   .btn-secondary {
     min-height: 50px;
