@@ -11,8 +11,10 @@ import { buildKalasam, buildMandapam, buildMarapachi, buildElephant, buildShop, 
 
 const LAMP_VOXEL = 0.016
 
-// A brass kuthuvilakku whose five flames glow; with `light`, a flickering point light sits in them.
-export function Lamp({ stem = 52, size = LAMP_VOXEL, light = false }) {
+// The flickering point light that sits in a lamp's flames. The Golu keeps these in the room rather
+// than on the lamps themselves (see GoluLights in Golu.jsx), so turning a Golu away on the carousel
+// never changes how many lights the scene has.
+export function LampLight({ stem = 52, size = LAMP_VOXEL }) {
   const ref = useRef()
   const seed = useRef(Math.random() * 10)
   useFrame(({ clock }) => {
@@ -20,13 +22,21 @@ export function Lamp({ stem = 52, size = LAMP_VOXEL, light = false }) {
     const t = clock.elapsedTime * 9 + seed.current
     ref.current.intensity = 1.6 * (1 + Math.sin(t) * 0.08 + Math.sin(t * 2.3) * 0.06)
   })
+  return <pointLight ref={ref} color="#ffb35c" intensity={1.6} distance={3.2} decay={2} position={[0, (stem + 15) * size, 0.1]} />
+}
+
+// A brass kuthuvilakku whose five flames glow; with `light`, a flickering point light sits in them.
+export function Lamp({ stem = 52, size = LAMP_VOXEL, light = false }) {
   return (
     <group>
       <VoxelModel id={`lamp-${stem}`} build={() => buildLamp(stem)} size={size} />
-      {light && <pointLight ref={ref} color="#ffb35c" intensity={1.6} distance={3.2} decay={2} position={[0, (stem + 15) * size, 0.1]} />}
+      {light && <LampLight stem={stem} size={size} />}
     </group>
   )
 }
+
+// the lamps standing on the top step
+export const KUTHUVILAKKU = { stem: 34, size: LAMP_VOXEL / 1.2 }
 
 const piece = (id, build, props = {}) =>
   function Piece() {
@@ -35,7 +45,7 @@ const piece = (id, build, props = {}) =>
 
 export const PIECES = {
   kalasam: piece('kalasam', () => buildKalasam(1.35)),
-  kuthuvilakku: () => <Lamp stem={34} size={LAMP_VOXEL / 1.2} light />,
+  kuthuvilakku: ({ light = true }) => <Lamp {...KUTHUVILAKKU} light={light} />,
   mandapam: piece('mandapam', buildMandapam),
   marapachi: piece('marapachi', buildMarapachi),
   elephant: piece('elephant', buildElephant, { rotation: [0, 0.5, 0] }),

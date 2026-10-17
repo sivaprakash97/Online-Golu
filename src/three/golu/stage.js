@@ -17,6 +17,15 @@ const MARIGOLDS = ['#f6b928', '#f08a24', '#e8601c']
 const KOLAM = { line: '#cdb48c', maroon: '#6e1a26', peacock: '#13505a', leaf: '#2c5f34', centre: '#9a3f17' }
 const LEAF = ['#2f7d3d', '#4f9a44']
 
+// Each Golu on the carousel has its own colours, so you can tell them apart as they turn: the silk
+// on the risers (the open steps alternate between two), the locked top steps, and the painted arch
+// on the wall behind. `key` keeps their voxel models apart in the cache.
+export const GOLU_THEMES = {
+  1: { key: '', risers: ['#8e1f2e', '#a3283a'], locked: '#13505a', arch: '#e9b77a', archBorder: '#b8452f', archDots: '#c8323a' },
+  2: { key: '-g2', risers: ['#13505a', '#196270'], locked: '#8e1f2e', arch: '#b9d3b4', archBorder: '#2d6b52', archDots: '#e8b33c' },
+}
+export const goluTheme = (golu) => GOLU_THEMES[golu] || GOLU_THEMES[1]
+
 // a touch of grain so big flat areas don't look like plastic
 const grain = (c, x, y, z, amt = 0.025) => (hash3(x, y, z) % 7 === 0 ? shade(c, -amt) : c)
 
@@ -36,13 +45,13 @@ export function stepDims(k) {
 // extra edges to catch the light. The small gold diamonds on the riser are too fine for these
 // voxels; see buildDiamond.
 // x runs across, z from the back (-nz/2) to the front (nz/2 - 1).
-export function buildStep(k) {
+export function buildStep(k, theme = GOLU_THEMES[1]) {
   const { nx, nz } = stepDims(k)
   const hx = nx / 2
   const hz = nz / 2
   const g = new VoxelGrid(nx + 8, STEP_H + 4, nz + 8)
   const locked = k >= 8
-  const riser = locked ? '#13505a' : ['#8e1f2e', '#a3283a'][k % 2]
+  const riser = locked ? theme.locked : theme.risers[k % 2]
   const front = hz - 1
 
   g.box(-hx, hx, 0, STEP_H, -hz, hz, WOOD)
@@ -129,7 +138,7 @@ export const WALL = { nx: 388, ny: 168, nz: 8 }
 
 // A plastered wall with a carved wooden dado, a gold band, and a painted arch behind the Golu
 // whose border stands out from the wall.
-export function buildWall() {
+export function buildWall(theme = GOLU_THEMES[1]) {
   const { nx, ny, nz } = WALL
   const hx = nx / 2
   const hz = nz / 2
@@ -143,8 +152,8 @@ export function buildWall() {
     const r = arch(x, y)
     if (r < 93) {
       // a ring of little lotus-bud dots just inside the border
-      if (Math.abs(r - 87) < 1.2 && mod(Math.round(Math.atan2(y - cy, x) * 60), 3) === 0) return '#c8323a'
-      return '#e9b77a'
+      if (Math.abs(r - 87) < 1.2 && mod(Math.round(Math.atan2(y - cy, x) * 60), 3) === 0) return theme.archDots
+      return theme.arch
     }
     return '#f0d2a4'
   })
@@ -152,7 +161,7 @@ export function buildWall() {
   for (let y = cy; y < ny; y++)
     for (let x = -hx; x < hx; x++) {
       const r = arch(x, y)
-      if (r >= 93 && r < 98) g.box(x, x + 1, y, y + 1, hz, hz + (r < 95.5 ? 2 : 1), r >= 96.5 ? GOLD : '#b8452f')
+      if (r >= 93 && r < 98) g.box(x, x + 1, y, y + 1, hz, hz + (r < 95.5 ? 2 : 1), r >= 96.5 ? GOLD : theme.archBorder)
     }
   return g
 }

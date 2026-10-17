@@ -5,36 +5,54 @@ import { GOLU } from './layout.js'
 import VoxelModel, { voxelGeometry } from '../voxel/VoxelModel.jsx'
 import { VOXEL_MATERIALS } from '../voxel/mesh.js'
 import { VOXEL } from '../bommai/dims.js'
-import { S, stepDims, buildStep, buildDiamond, FLOOR, buildFloor, WALL, WALL_S, buildWall, buildPillar, BEAM, buildBeam, buildToran, buildGarlands, buildBanana } from './stage.js'
-import { PIECES, Lamp } from '../traditional/Pieces.jsx'
+import { S, stepDims, buildStep, buildDiamond, FLOOR, buildFloor, WALL, WALL_S, buildWall, buildPillar, BEAM, buildBeam, buildToran, buildGarlands, buildBanana, goluTheme } from './stage.js'
+import { PIECES, Lamp, LampLight, KUTHUVILAKKU } from '../traditional/Pieces.jsx'
 
 // The Golu and its room, drawn in voxels like the Bommais (see stage.js and traditional/pieces.js).
 
 const { H, D } = GOLU // widths taper: GOLU.width(k)
 
-// Replaceable slots for the foundation pieces. Swap `piece` for the owner's own figurines
-// (e.g. a glTF component) without touching anything else.
-export const TRADITIONAL_SLOTS = [
-  { step: 9, x: -3.9, piece: 'kuthuvilakku' },
-  { step: 9, x: -2.1, piece: 'mandapam' },
-  { step: 9, x: 0, piece: 'kalasam' },
-  { step: 9, x: 2.1, piece: 'mandapam' },
-  { step: 9, x: 3.9, piece: 'kuthuvilakku' },
-  { step: 8, x: -3.8, piece: 'elephant' },
-  { step: 8, x: -1.9, piece: 'marapachi' },
-  { step: 8, x: 0, piece: 'brass-vessels' },
-  { step: 8, x: 1.9, piece: 'chettiar-shop' },
-  { step: 8, x: 3.8, piece: 'peacock' },
-]
+// Replaceable slots for the foundation pieces on each Golu (by Golu number). Swap `piece` for the
+// owner's own figurines (e.g. a glTF component) without touching anything else; `flip` mirrors a
+// piece. The kuthuvilakkus stay at x = ±3.9 on every Golu: their flames' lights (GoluLights) are
+// fixed in the room.
+export const TRADITIONAL_SLOTS = {
+  1: [
+    { step: 9, x: -3.9, piece: 'kuthuvilakku' },
+    { step: 9, x: -2.1, piece: 'mandapam' },
+    { step: 9, x: 0, piece: 'kalasam' },
+    { step: 9, x: 2.1, piece: 'mandapam' },
+    { step: 9, x: 3.9, piece: 'kuthuvilakku' },
+    { step: 8, x: -3.8, piece: 'elephant' },
+    { step: 8, x: -1.9, piece: 'marapachi' },
+    { step: 8, x: 0, piece: 'brass-vessels' },
+    { step: 8, x: 1.9, piece: 'chettiar-shop' },
+    { step: 8, x: 3.8, piece: 'peacock' },
+  ],
+  2: [
+    { step: 9, x: -3.9, piece: 'kuthuvilakku' },
+    { step: 9, x: -2, piece: 'kalasam' },
+    { step: 9, x: 0, piece: 'mandapam' },
+    { step: 9, x: 2, piece: 'kalasam' },
+    { step: 9, x: 3.9, piece: 'kuthuvilakku' },
+    { step: 8, x: -3.8, piece: 'peacock', flip: true },
+    { step: 8, x: -1.9, piece: 'chettiar-shop' },
+    { step: 8, x: 0, piece: 'marapachi' },
+    { step: 8, x: 1.9, piece: 'brass-vessels' },
+    { step: 8, x: 3.8, piece: 'elephant', flip: true },
+  ],
+}
+const slotsFor = (golu) => TRADITIONAL_SLOTS[golu] || TRADITIONAL_SLOTS[1]
+const FLOOR_LAMPS = [-4.4, 4.4].map((x) => [x, 0, 2.2])
 
 // One step, fitted exactly to its width, rise and depth so Bommais stand on its tread.
-function Step({ k }) {
+function Step({ k, theme }) {
   const { nx, ny, nz } = stepDims(k)
   const depth = GOLU.front(k) - GOLU.backZ
   return (
     <VoxelModel
-      id={`step-${k}`}
-      build={() => buildStep(k)}
+      id={`step-${k}${theme.key}`}
+      build={() => buildStep(k, theme)}
       size={[GOLU.width(k) / nx, H / ny, depth / nz]}
       position={[0, (k - 1) * H, GOLU.front(k) - depth / 2]}
     />
@@ -133,7 +151,7 @@ function Garlands({ z }) {
   )
 }
 
-function Room() {
+function Room({ theme, lights }) {
   const backZ = GOLU.backZ - 0.25
   const floorZ = backZ + 6.75 - 0.2
   const kolamZ = Math.round((2.1 - floorZ) / S)
@@ -142,7 +160,7 @@ function Room() {
       {/* the red-oxide floor, with the kolam in front of the Golu */}
       <VoxelModel id="floor" build={() => buildFloor(kolamZ)} size={[19.4 / FLOOR.nx, 0.5 / FLOOR.ny, 13.5 / FLOOR.nz]} position={[0, -0.5, floorZ]} cast={false} />
       {/* back wall with the painted arch */}
-      <VoxelModel id="wall" build={buildWall} size={WALL_S} position={[0, 0, backZ - (WALL.nz / 2) * WALL_S]} />
+      <VoxelModel id={`wall${theme.key}`} build={() => buildWall(theme)} size={WALL_S} position={[0, 0, backZ - (WALL.nz / 2) * WALL_S]} />
       {/* pillars, the beam across them, the toran and the marigold garlands */}
       {[-7.8, 7.8].map((x) => (
         <VoxelModel key={x} id="pillar" build={buildPillar} size={S} position={[x, 0, backZ + 0.45]} />
@@ -154,37 +172,62 @@ function Room() {
       <VoxelModel id="banana" build={buildBanana} size={S} position={[-8.1, 0, 0.6]} />
       <VoxelModel id="banana" build={buildBanana} size={S} position={[8.1, 0, 0.6]} rotation={[0, Math.PI, 0]} />
       {/* floor lamps */}
-      <group position={[-4.4, 0, 2.2]}>
-        <Lamp stem={52} light />
-      </group>
-      <group position={[4.4, 0, 2.2]}>
-        <Lamp stem={52} light />
-      </group>
+      {FLOOR_LAMPS.map((p) => (
+        <group key={p[0]} position={p}>
+          <Lamp stem={52} light={lights} />
+        </group>
+      ))}
     </group>
   )
 }
 
-function TraditionalPieces() {
-  return TRADITIONAL_SLOTS.map((s, i) => {
+const pieceAt = (s) => [s.x, GOLU.top(s.step) + 0.025, GOLU.standZ(s.step)]
+
+function TraditionalPieces({ golu, lights }) {
+  return slotsFor(golu).map((s, i) => {
     const Piece = PIECES[s.piece]
     return (
-      <group key={i} position={[s.x, GOLU.top(s.step) + 0.025, GOLU.standZ(s.step)]} scale={1.2}>
-        <Piece />
+      <group key={i} position={pieceAt(s)} scale={[s.flip ? -1.2 : 1.2, 1.2, 1.2]}>
+        <Piece light={lights} />
       </group>
     )
   })
 }
 
-export default function Golu({ tierStates = {}, onTierOver, onTierOut, onTierPick, interactive }) {
+// The flickering lights of the floor lamps and the lamps on the top step, fixed in the room: on the
+// carousel the Golus turn but these stay put (see LampLight), lighting whichever Golu faces you.
+export function GoluLights() {
+  return (
+    <>
+      {FLOOR_LAMPS.map((p) => (
+        <group key={p[0]} position={p}>
+          <LampLight stem={52} />
+        </group>
+      ))}
+      {slotsFor(1)
+        .filter((s) => s.piece === 'kuthuvilakku')
+        .map((s) => (
+          <group key={s.x} position={pieceAt(s)} scale={1.2}>
+            <LampLight {...KUTHUVILAKKU} />
+          </group>
+        ))}
+    </>
+  )
+}
+
+// `golu` picks the colours and the traditional pieces; `lights={false}` leaves the lamps' lights
+// to GoluLights.
+export default function Golu({ golu = 1, lights = true, tierStates = {}, onTierOver, onTierOut, onTierPick, interactive }) {
   const steps = Array.from({ length: GOLU.steps }, (_, i) => i + 1)
+  const theme = goluTheme(golu)
   return (
     <group>
-      <Room />
+      <Room theme={theme} lights={lights} />
       {steps.map((k) => (
-        <Step key={k} k={k} />
+        <Step key={k} k={k} theme={theme} />
       ))}
       <RiserDiamonds />
-      <TraditionalPieces />
+      <TraditionalPieces golu={golu} lights={lights} />
       {interactive &&
         steps.map((k) => <TierHitZone key={k} k={k} state={tierStates[k]} onOver={onTierOver} onOut={onTierOut} onPick={onTierPick} />)}
     </group>

@@ -2,7 +2,8 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import Golu from './golu/Golu.jsx'
+import Golu, { GoluLights } from './golu/Golu.jsx'
+import Carousel from './golu/Carousel.jsx'
 import { GOLU, computeLayout } from './golu/layout.js'
 import Bommai from './bommai/Bommai.jsx'
 import Petals from './Petals.jsx'
@@ -50,7 +51,10 @@ const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRU
 // Navigation (when `controlsEnabled`): drag to orbit within limits, two-finger scroll to pan,
 // pinch / ctrl+scroll / mouse wheel to zoom. `view` carries one-off commands from the UI:
 // { kind: 'reset' | 'in' | 'out', n } where n changes on every press.
-function CameraRig({ shot, focus, controlsEnabled, view }) {
+// With more than one Golu (`carousel`, the Carousel's handle), dragging on past the edge of the orbit
+// turns the stage by hand: let go far enough along (or flick) and `onTurnBy(±1)` turns to the next
+// Golu. Every turn (`turnKey` changes) brings the camera back to the current shot.
+function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey }) {
   const ref = useRef()
   const { size, gl } = useThree()
   const aspect = size.width / size.height
@@ -89,6 +93,72 @@ function CameraRig({ shot, focus, controlsEnabled, view }) {
     c.addEventListener('controlstart', stop)
     return () => c.removeEventListener('controlstart', stop)
   }, [maxDist])
+
+  // a turn of the carousel: frame the Golu now facing you
+  useEffect(() => {
+    const c = ref.current
+    if (!c || !turnKey) return
+    const s = shotFor(shot, aspect, focus)
+    c.smoothTime = 0.7
+    c.setLookAt(...s.pos, ...s.target, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnKey])
+
+  // Drag past the edge of the orbit to turn the carousel. camera-controls turns a sideways drag of dx
+  // pixels into 2π·dx/height of azimuth and stops at the limit; whatever the drag would have turned
+  // beyond the limit turns the stage instead, following the finger. Only at the overview (not while
+  // zoomed in on a Bommai), with one finger or the left button, and not while a Bommai is carried
+  // (DragLayer switches the controls off for that).
+  const turnBy = useRef(onTurnBy)
+  turnBy.current = onTurnBy
+  const overview = useRef(true)
+  overview.current = shot !== 'focus'
+  useEffect(() => {
+    if (!carousel) return
+    const el = gl.domElement
+    const pointers = new Set()
+    let g = null // the gesture: { id, x0, az0 }
+    const end = (commit) => {
+      if (!g) return
+      g = null
+      const dir = carousel.current?.release() || 0
+      if (commit && dir) turnBy.current?.(dir)
+    }
+    const down = (e) => {
+      pointers.add(e.pointerId)
+      const c = ref.current
+      if (pointers.size > 1) return end(false) // a pinch: not a turn
+      if (!c || !enabled.current || !overview.current || carousel.current?.busy()) return
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      if (c.distance < limits.current.max * 0.5) return // zoomed right in: just look around
+      g = { id: e.pointerId, x0: e.clientX, az0: c.getSpherical(new THREE.Spherical(), true).theta }
+    }
+    const move = (e) => {
+      if (!g || e.pointerId !== g.id) return
+      const c = ref.current
+      if (!c || !c.enabled || !enabled.current) return end(false)
+      const h = el.clientHeight
+      const az = g.az0 + (2 * Math.PI * (g.x0 - e.clientX)) / h
+      const over = az - clamp(az, c.minAzimuthAngle, c.maxAzimuthAngle)
+      const px = (over * h) / (2 * Math.PI)
+      carousel.current?.drag(clamp(px / (el.clientWidth * 0.7), -1, 1))
+    }
+    const up = (e) => {
+      pointers.delete(e.pointerId)
+      if (g && e.pointerId === g.id) end(e.type === 'pointerup')
+    }
+    el.addEventListener('pointerdown', down)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      end(false)
+      el.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [gl, carousel])
 
   // reset / zoom buttons
   useEffect(() => {
@@ -184,6 +254,8 @@ const usePortrait = () => useThree((s) => s.size.width / s.size.height < PORTRAI
 // Every Bommai glides to its layout slot, so when someone joins the step the others shuffle over.
 // `spawn` drives the arrival: 'pop' (first load), 'fly' (your placement), 'drop' (someone else, live).
 // `onGrab` (your own Bommai) lets you pick it up and move it; a plain click still selects it.
+// Without either (a Golu turned away, or the stage turning) it has no pointer handlers at all, so
+// it never catches clicks meant for the Golu in front of it.
 // The name tag shows only for the selected Bommai (yours says YOU), and never over the workshop.
 function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLanded }) {
   const portrait = usePortrait()
@@ -252,27 +324,35 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
     if (inner.current) inner.current.position.y += (lift - inner.current.position.y) * (1 - Math.exp(-dt * 12))
   })
 
-  return (
-    <group ref={ref}>
-      <group
-        ref={inner}
-        onPointerOver={(e) => {
-          if (!onPick && !onGrab) return
+  const interactive = !!(onPick || onGrab)
+  useEffect(() => {
+    if (interactive || !hover) return
+    setHover(false)
+    document.body.style.cursor = ''
+  }, [interactive]) // eslint-disable-line react-hooks/exhaustive-deps
+  const handlers = interactive
+    ? {
+        onPointerOver: (e) => {
           e.stopPropagation()
           setHover(true)
           document.body.style.cursor = onGrab ? 'grab' : 'pointer'
-        }}
-        onPointerOut={() => {
+        },
+        onPointerOut: () => {
           setHover(false)
           document.body.style.cursor = ''
-        }}
-        onPointerDown={(e) => onGrab?.(e, b, tgt)}
-        onClick={(e) => {
+        },
+        onPointerDown: (e) => onGrab?.(e, b, tgt),
+        onClick: (e) => {
           if (!onPick || onGrab) return
           e.stopPropagation()
           onPick(b)
-        }}
-      >
+        },
+      }
+    : {}
+
+  return (
+    <group ref={ref}>
+      <group ref={inner} {...handlers}>
         <Bommai config={b} phaseKey={b.id} />
       </group>
       {showTag && (
@@ -352,8 +432,14 @@ function Lights() {
   )
 }
 
+// `golus`: how many Golus stand on the carousel; `turn` ({ golu, dir, n }, see Carousel) says which
+// one faces you. Only that one is interactive: its Bommais, its spots and the draft all live in world
+// space, which is where the Golu facing you stands. `onTurnBy(±1)` asks to turn to the next one.
 export default function GoluScene({
   bommais,
+  golus = 1,
+  turn = { golu: 1, dir: 0, n: 0 },
+  onTurnBy,
   mode,
   draft,
   myIds,
@@ -368,7 +454,18 @@ export default function GoluScene({
   paused,
   view,
 }) {
-  const layout = useMemo(() => computeLayout(bommais), [bommais])
+  const active = turn.golu
+  // each Golu's Bommais and where they stand on it
+  const byGolu = useMemo(() => {
+    const out = Array.from({ length: golus }, () => [])
+    for (const b of bommais) out[(b.golu || 1) - 1]?.push(b)
+    return out
+  }, [bommais, golus])
+  const layouts = useMemo(() => byGolu.map((list) => computeLayout(list)), [byGolu])
+  const activeBommais = byGolu[active - 1] || []
+  const layout = layouts[active - 1] || new Map()
+  const carousel = useRef()
+  const [turning, setTurning] = useState(false)
   const placing = mode === 'place'
   const exploring = mode === 'home' || mode === 'done'
   const focusTarget = focusId && layout.get(focusId)
@@ -399,30 +496,52 @@ export default function GoluScene({
       <Suspense fallback={null}>
         <Lights />
         <SoftEnv intensity={0.22} />
-        <CameraRig shot={shot} focus={focus} controlsEnabled={exploring} view={view} />
-        <Golu />
-        {bommais.map((b) => {
-          const t = layout.get(b.id)
-          if (!t || carrying === b.id) return null
-          const mine = myIds.includes(b.id)
-          return (
-            <PlacedBommai
-              key={b.id}
-              b={b}
-              target={t}
-              spawn={settled.current.has(b.id) ? undefined : spawns[b.id]}
-              isMine={mine}
-              showTag={tagId === b.id && !paused}
-              onPick={exploring ? onPickBommai : null}
-              onGrab={exploring && mine && canMove ? grabPlaced : null}
-            />
-          )
-        })}
-        {placing && draft && carrying !== 'draft' && <DraftOnKolam draft={draft} onGrab={grabDraft} />}
+        <CameraRig
+          shot={shot}
+          focus={focus}
+          controlsEnabled={exploring}
+          view={view}
+          carousel={golus > 1 ? carousel : null}
+          onTurnBy={onTurnBy}
+          turnKey={turn.n}
+        />
+        <GoluLights />
+        <Carousel
+          ref={carousel}
+          count={golus}
+          turn={turn}
+          onTurning={setTurning}
+          renderGolu={(g) => {
+            const front = g === active && !turning
+            return (
+              <>
+                <Golu golu={g} lights={false} />
+                {byGolu[g - 1].map((b) => {
+                  const t = layouts[g - 1].get(b.id)
+                  if (!t || carrying === b.id) return null
+                  const mine = myIds.includes(b.id)
+                  return (
+                    <PlacedBommai
+                      key={b.id}
+                      b={b}
+                      target={t}
+                      spawn={settled.current.has(b.id) ? undefined : spawns[b.id]}
+                      isMine={mine}
+                      showTag={tagId === b.id && !paused && front}
+                      onPick={exploring && front ? onPickBommai : null}
+                      onGrab={exploring && front && mine && canMove ? grabPlaced : null}
+                    />
+                  )
+                })}
+              </>
+            )
+          }}
+        />
+        {placing && draft && carrying !== 'draft' && <DraftOnKolam draft={draft} onGrab={turning ? undefined : grabDraft} />}
         <DragLayer
           ref={drag}
-          bommais={bommais}
-          showMarkers={placing}
+          bommais={activeBommais}
+          showMarkers={placing && !turning}
           lens={placing || mode === 'placing'}
           onDrop={onDropBommai}
           onReject={onReject}

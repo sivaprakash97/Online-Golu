@@ -225,6 +225,22 @@ export const LOCKED_STEPS = [8, 9]
 // (step 6: 10 … step 1: 15), 84 in all. Steps 8 and 9 hold the traditional pieces.
 // supabase/migrations/20261015000000_slots_and_moving.sql repeats the rule.
 export const spotsOnStep = (step) => (step >= 1 && step <= 7 ? 16 - step : 0)
+export const SPOTS_PER_GOLU = OPEN_STEPS.reduce((n, k) => n + spotsOnStep(k), 0)
+
+// The Golus on the carousel, numbered from 1. Each is a full nine-step Golu with the same spots.
+// supabase/migrations/20261017000000_second_golu.sql repeats the count (check golu between 1 and 2);
+// to open another Golu, raise both.
+export const GOLU_COUNT = 2
+
+// Free spots left on each Golu (index 0 is Golu 1), counting only spots that exist.
+export function freeSpotsByGolu(bommais, count = GOLU_COUNT) {
+  const taken = Array.from({ length: count }, () => ({}))
+  for (const b of bommais) {
+    const t = taken[(b.golu || 1) - 1]
+    if (t) t[b.step] = (t[b.step] || 0) + 1
+  }
+  return taken.map((t) => OPEN_STEPS.reduce((n, k) => n + Math.max(0, spotsOnStep(k) - (t[k] || 0)), 0))
+}
 // The order spots fill when none is chosen: from the middle outward (c, c - 1, c + 1, … with c = ⌊n/2⌋).
 export const centreOut = (n) => {
   const c = Math.floor(n / 2)

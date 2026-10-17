@@ -3,9 +3,10 @@ import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
+import GoluArrows from './ui/GoluNav.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
-import { DEFAULT_CONFIG, OPEN_STEPS, spotsOnStep, normalizeConfig } from './data/options.js'
-import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, SANDBOX } from './lib/store.js'
+import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options.js'
+import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
 import { TOUCH, useMedia } from './lib/device.js'
@@ -75,12 +76,19 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [justPlaced, setJustPlaced] = useState(null)
   const shared = useRef(new URLSearchParams(location.search).get('b'))
+  // The Golus on the carousel and which one faces you. A turn is { golu, dir, n }: dir is the way the
+  // stage turns (+1 brings the next Golu on the right round, -1 the one on the left, 0 the shorter way).
+  const [golus, setGolus] = useState(1)
+  const [turn, setTurn] = useState({ golu: 1, dir: 0, n: 0 })
+  const active = turn.golu
+  const goTo = useCallback((golu, dir = 0) => setTurn((t) => (t.golu === golu ? t : { golu, dir, n: t.n + 1 })), [])
 
   // load + realtime
   useEffect(() => {
     let unsub = () => {}
     loadBommais().then((rows) => {
       setBommais(rows)
+      setGolus(goluCount())
       const t0 = 0.25
       setSpawns(Object.fromEntries(rows.map((r, i) => [r.id, { type: 'pop', delay: t0 + i * 0.07 }])))
       unsub = subscribeBommais((row) => {
@@ -93,7 +101,9 @@ export default function App() {
         })
       })
       const sid = shared.current
-      if (sid && rows.some((r) => r.id === sid)) {
+      const sharedRow = sid && rows.find((r) => r.id === sid)
+      if (sharedRow) {
+        goTo(sharedRow.golu)
         setTimeout(() => {
           setFocusId(sid)
           setTagId(sid)
@@ -109,13 +119,10 @@ export default function App() {
     showToast.t = setTimeout(() => setToast(null), 2600)
   }, [])
 
-  const stepCounts = useMemo(() => {
-    const m = {}
-    bommais.forEach((b) => (m[b.step] = (m[b.step] || 0) + 1))
-    return m
-  }, [bommais])
-  const fullSteps = useMemo(() => new Set(OPEN_STEPS.filter((k) => (stepCounts[k] || 0) >= spotsOnStep(k))), [stepCounts])
-  const goluFull = fullSteps.size === OPEN_STEPS.length
+  // free spots on each Golu (index 0 is Golu 1)
+  const free = useMemo(() => freeSpotsByGolu(bommais, golus), [bommais, golus])
+  const goluFull = free.every((n) => n === 0)
+  const roomy = free.findIndex((n) => n > 0) + 1 // the first Golu with a free spot (0: none)
   // one Bommai per visitor
   const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))
 
@@ -132,6 +139,7 @@ export default function App() {
     else if (e.code === 'already_placed') showToast('You already have a Bommai on the Golu.')
     else if (e.code === 'locked_step') showToast('The top two steps are reserved for the deities and gods.')
     else if (e.code === 'move_unavailable') showToast("Moving isn't switched on for this Golu yet.")
+    else if (e.code === 'golu_unavailable') showToast("This Golu isn't open yet. Try another one.")
     else showToast('Could not place your Bommai. Try again?')
   }
 
@@ -141,7 +149,7 @@ export default function App() {
     if (item.kind === 'draft') {
       if (hasMine) return false
       try {
-        const row = await addBommai(draft, step, slot)
+        const row = await addBommai(draft, active, step, slot)
         setBommais((list) => (list.some((b) => b.id === row.id) ? list : [...list, row]))
         // it was just set down by hand: no drop-in animation (the live update may have queued one)
         setSpawns(({ [row.id]: _, ...rest }) => rest)
@@ -161,7 +169,8 @@ export default function App() {
     }
     const before = bommais.find((b) => b.id === item.id)
     if (!before) return false
-    if (before.step === step && computeLayout(bommais).get(before.id)?.slot === slot) return true
+    const sameGolu = bommais.filter((b) => b.golu === before.golu)
+    if (before.step === step && computeLayout(sameGolu).get(before.id)?.slot === slot) return true
     setBommais((list) => list.map((b) => (b.id === item.id ? { ...b, step, slot } : b)))
     try {
       await moveBommai(item.id, step, slot)
@@ -189,8 +198,48 @@ export default function App() {
   const findMine = () => {
     const id = myIds.filter((i) => bommais.some((b) => b.id === i)).pop()
     if (!id) return
+    goTo(bommais.find((b) => b.id === id).golu)
     setFocusId(id)
     setTagId(id)
+  }
+
+  // Turn the carousel to the next Golu on either side (arrows, arrow keys, or dragging past the edge).
+  const turnBy = useCallback(
+    (dir) => {
+      if (golus < 2) return
+      setFocusId(null)
+      setTagId(null)
+      setTurn((t) => ({ golu: ((t.golu - 1 + dir + golus) % golus) + 1, dir, n: t.n + 1 }))
+    },
+    [golus],
+  )
+  // the edge arrows name the Golu they turn to, so they turn to it directly
+  const turnTo = (golu, dir) => {
+    setFocusId(null)
+    setTagId(null)
+    goTo(golu, dir)
+  }
+  const turnable = mode === 'home' || mode === 'place'
+  useEffect(() => {
+    if (!turnable || golus < 2) return
+    const onKey = (e) => {
+      if (e.target.closest?.('input, textarea')) return
+      if (e.key === 'ArrowLeft') turnBy(-1)
+      else if (e.key === 'ArrowRight') turnBy(1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [turnable, golus, turnBy])
+
+  // Ready to place: if the Golu facing you is full, turn to the nearest one with room.
+  const startPlacing = () => {
+    setMode('place')
+    if (free[active - 1] > 0) return
+    for (let d = 1; d < golus; d++)
+      for (const dir of [1, -1]) {
+        const g = ((active - 1 + dir * d + golus) % golus) + 1
+        if (free[g - 1] > 0) return goTo(g, dir)
+      }
   }
 
   // Your Bommai, once you've found it or clicked it, can be edited: back to the workshop with its
@@ -229,7 +278,9 @@ export default function App() {
     camera('reset')
   }
 
-  // the main call to action: make one, find yours, or nothing left to take
+  // the main call to action: make one, find yours, or nothing left to take. On a full Golu it says
+  // where yours will go, and turns the stage there on the way into the workshop.
+  const here = free[active - 1] || 0
   const mainCta = hasMine ? (
     <button className="btn-primary" onClick={findMine}>
       Find my Bommai
@@ -238,9 +289,13 @@ export default function App() {
     <button className="btn-primary" disabled>
       The Golu is full
     </button>
-  ) : (
+  ) : here > 0 ? (
     <button className="btn-primary" onClick={startCreate}>
       Add your Bommai
+    </button>
+  ) : (
+    <button className="btn-primary" onClick={() => (goTo(roomy, roomy > active ? 1 : -1), startCreate())}>
+      Add yours to {roomy > active ? 'the new' : 'another'} Golu
     </button>
   )
 
@@ -255,6 +310,9 @@ export default function App() {
         <div className="stage">
           <GoluScene
             bommais={bommais}
+            golus={golus}
+            turn={turn}
+            onTurnBy={turnBy}
             mode={mode}
             draft={draft}
             myIds={myIds}
@@ -288,16 +346,23 @@ export default function App() {
             <div className="hud-count">
               <Counter n={count} live={live} />
             </div>
-            <div className="cta-row">
+            <div className="cta-row has-note">
               {mainCta}
               {mine && (
                 <button className="btn-secondary" onClick={startEdit}>
                   Edit
                 </button>
               )}
+              {/* how much room the Golu facing you has left */}
+              {!goluFull && (
+                <p className="cta-note">
+                  <span>{here ? `${here} ${here === 1 ? 'spot' : 'spots'} left` : 'This Golu is full'}</span>
+                </p>
+              )}
             </div>
+            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
             <p className="explore-hint">
-              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
+              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around{golus > 1 ? ', further to turn the Golu' : ''} · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">
@@ -317,7 +382,7 @@ export default function App() {
             onBack={() => setMode('home')}
             onDone={(cfg) => {
               setDraft(cfg)
-              setMode('place')
+              startPlacing()
             }}
           />
         )}
@@ -333,13 +398,20 @@ export default function App() {
             <header className="place-head">
               <span className="eyebrow">Last step</span>
               <h2>Place your Bommai on the Golu</h2>
-              <p>Pick it up and drop it on any glowing spot. The top two steps are reserved for the deities and gods.</p>
+              <p>
+                {free[active - 1] > 0
+                  ? `Pick it up and drop it on any glowing spot (${free[active - 1]} left${golus > 1 ? ' on this Golu' : ''}). The top two steps are reserved for the deities and gods.`
+                  : roomy
+                    ? 'This Golu is full. Turn to the new Golu with the arrow.'
+                    : 'Every Golu is full.'}
+              </p>
             </header>
             <div className="cta-row">
               <button className="btn-secondary" onClick={() => setMode('create')}>
                 ← Edit
               </button>
             </div>
+            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
           </>
         )}
 

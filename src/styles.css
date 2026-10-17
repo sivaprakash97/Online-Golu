@@ -456,6 +456,149 @@ input:focus-visible {
   color: var(--paper-ink);
 }
 
+/* ---------- carousel (more than one Golu) ---------- */
+/* Arrows at the screen's edges turn the stage, only where there is somewhere to go. "New Golu"
+   (the Golu facing you is full and the next has room) is turmeric and blinks, nudging the way to
+   go, with a glow pulsing along that edge of the screen. */
+.golu-edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: fade 0.9s 0.4s both;
+}
+.golu-edge.is-left {
+  left: clamp(10px, 2.4vw, 36px);
+}
+.golu-edge.is-right {
+  right: clamp(10px, 2.4vw, 36px);
+}
+.golu-edge-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.golu-edge-icon {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: 0 5px 0 #b99e78, 0 16px 34px -12px rgba(0, 0, 0, 0.7);
+  transition: transform 0.12s ease;
+}
+.golu-edge-icon svg {
+  width: 36px;
+  height: 36px;
+}
+.golu-edge-btn:hover .golu-edge-icon {
+  transform: translateY(-2px);
+}
+.golu-edge-btn:active .golu-edge-icon {
+  transform: translateY(4px);
+}
+.golu-edge-label {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--paper-ink);
+  background: var(--paper);
+  padding: 7px 14px;
+  border-radius: 99px;
+  box-shadow: 0 3px 0 #b99e78;
+}
+.is-new .golu-edge-icon {
+  background: var(--turmeric);
+  color: #2a1208;
+  animation: edge-blink 1.4s ease-in-out infinite;
+}
+.is-new .golu-edge-icon svg {
+  animation: edge-nudge 1.4s ease-in-out infinite;
+}
+.is-new .golu-edge-label {
+  background: var(--turmeric);
+  color: #2a1208;
+  box-shadow: 0 3px 0 var(--turmeric-deep);
+  animation: edge-label 1.4s ease-in-out infinite;
+}
+.golu-edge-glow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: min(260px, 34vw);
+  background: radial-gradient(70% 45% at 100% 50%, rgba(244, 189, 56, 0.45) 0%, rgba(244, 189, 56, 0) 100%);
+  pointer-events: none;
+  animation: edge-glow 1.4s ease-in-out infinite;
+}
+@keyframes edge-blink {
+  0%,
+  100% {
+    box-shadow: 0 5px 0 var(--turmeric-deep), 0 0 0 0 rgba(244, 189, 56, 0.8);
+  }
+  60% {
+    box-shadow: 0 5px 0 var(--turmeric-deep), 0 0 0 20px rgba(244, 189, 56, 0);
+  }
+}
+@keyframes edge-nudge {
+  0%,
+  100% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+@keyframes edge-label {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes edge-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* how many spots the Golu facing you has left, under the main button */
+.cta-row.has-note {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 10px;
+}
+.cta-note {
+  flex-basis: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+}
+.cta-note span {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(20, 10, 15, 0.62);
+  padding: 5px 12px;
+  border-radius: 99px;
+}
+.mode-home .explore-hint {
+  bottom: calc(clamp(18px, 5vh, 44px) + 98px);
+}
+
 .toast {
   position: absolute;
   top: 20px;
@@ -841,6 +984,14 @@ input:focus-visible {
 
 /* ---------- compact landscape (phones on their side) ---------- */
 @media (max-height: 520px) and (min-width: 560px) {
+  .golu-edge-icon {
+    width: 54px;
+    height: 54px;
+  }
+  .golu-edge-icon svg {
+    width: 28px;
+    height: 28px;
+  }
   .signboard img {
     width: 240px;
   }
@@ -1096,6 +1247,25 @@ input:focus-visible {
 }
 
 @media (max-aspect-ratio: 4/5), (max-width: 559px) {
+  /* the carousel's edge arrows, a little smaller */
+  .golu-edge.is-left {
+    left: 8px;
+  }
+  .golu-edge.is-right {
+    right: 8px;
+  }
+  .golu-edge-icon {
+    width: 56px;
+    height: 56px;
+  }
+  .golu-edge-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+  .golu-edge-label {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
   .btn-primary,
   .btn-secondary {
     min-height: 50px;
@@ -1166,6 +1336,9 @@ input:focus-visible {
     font-size: 12px;
     line-height: 1.4;
     border-radius: 14px;
+  }
+  .mode-home .explore-hint {
+    bottom: calc(16px + env(safe-area-inset-bottom) + 92px);
   }
   .demo-badge {
     top: calc(10px + min(80vw, 360px) * 0.462 + 54px);
