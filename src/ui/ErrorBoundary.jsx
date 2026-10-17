@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { trackEvent } from '../lib/analytics.js'
 
 // If anything below throws while rendering, show a way back instead of a blank page.
 export default class ErrorBoundary extends Component {
@@ -10,6 +11,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('[golu] crashed', error, info?.componentStack)
+    trackEvent('app_crashed', { message: String(error?.message || error).slice(0, 120) })
   }
 
   render() {

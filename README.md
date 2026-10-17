@@ -32,6 +32,16 @@ Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />
 
 **Inside the workshop** (`src/lib/workshopStats.js`): `workshop_category_opened`, `workshop_option_changed`, `workshop_surprise_me`, `workshop_preview_touched`, `workshop_dead_click` (a click on nothing clickable, with the area), `workshop_submit_clicked` (`untouched` is true when someone submits without changing anything) and one `workshop_closed` summary per visit: seconds in total and per tab, tabs visited and not, changes per tab, tabs scrolled, and how it ended (`placed`, `saved`, `back`, `left_page`). PostHog's own dead-click detection is on too.
 
+**Also tracked:** `shared_link_opened` (someone arrived from a shared `?b=` link; `found` says whether that Bommai still exists), `find_my_bommai_clicked`, `fps_sample` (average and slowest-second frame rate, once per visit, a few seconds after load) and `app_crashed`. PostHog also captures uncaught errors.
+
+**Daily check (about five minutes).** Daily numbers are small (a few dozen placements a day), so compare each one with the previous three days instead of reading a single day's percentage.
+1. Placements today and spots left: run `supabase/analytics.sql`.
+2. PostHog funnel `workshop_opened` → `workshop_submit_clicked` → `drag_started` → `bommai_placed`, mobile vs desktop: where is the biggest drop?
+3. Friction: `drag_released_off_target`, `golu_swipe_too_short` and `workshop_dead_click` against yesterday.
+4. Share loop: `bommai_shared` against `shared_link_opened`.
+5. Watch two or three session replays of visitors who left without placing.
+6. Health: `app_crashed`, and `fps_sample` `fps_low` on touch devices.
+
 ## How it's built
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.

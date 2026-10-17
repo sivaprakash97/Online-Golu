@@ -9,7 +9,7 @@ import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
-import { trackEvent } from './lib/analytics.js'
+import { trackEvent, sampleFrameRate } from './lib/analytics.js'
 import { TOUCH, useMedia } from './lib/device.js'
 
 const MINE_KEY = 'golu.mine'
@@ -103,6 +103,10 @@ export default function App() {
       })
       const sid = shared.current
       const sharedRow = sid && rows.find((r) => r.id === sid)
+      // someone arriving from a shared link: the viral loop (found = the Bommai still exists)
+      if (sid) trackEvent('shared_link_opened', { found: !!sharedRow })
+      // measure smoothness once the scene has had a few seconds to settle
+      setTimeout(sampleFrameRate, 4000)
       if (sharedRow) {
         goTo(sharedRow.golu)
         setTimeout(() => {
@@ -203,6 +207,7 @@ export default function App() {
   }
 
   const findMine = () => {
+    trackEvent('find_my_bommai_clicked')
     const id = myIds.filter((i) => bommais.some((b) => b.id === i)).pop()
     if (!id) return
     goTo(bommais.find((b) => b.id === id).golu)
