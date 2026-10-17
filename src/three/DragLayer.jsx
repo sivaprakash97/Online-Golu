@@ -5,6 +5,7 @@ import Bommai from './bommai/Bommai.jsx'
 import { Torus, Disc } from './prims.jsx'
 import { GOLU, slotPos, freeSlots, pickStep } from './golu/layout.js'
 import { LOOKUP, OPEN_STEPS, SPOTS_PER_GOLU } from '../data/options.js'
+import { trackEvent } from '../lib/analytics.js'
 
 // Drag and drop for Bommais, picked up by the head.
 // press(event, item) starts a gesture on a doll; past a few pixels it becomes a drag. The doll then
@@ -163,6 +164,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, lens, on
     document.body.style.cursor = 'grabbing'
     setDrag(item)
     latest.current.onDragChange?.(item.key)
+    trackEvent('drag_started', { kind: item.kind })
   }
 
   const release = () => {
@@ -176,6 +178,7 @@ const DragLayer = forwardRef(function DragLayer({ bommais, showMarkers, lens, on
     } else {
       if (h?.reserved) latest.current.onReject?.('reserved', h.step)
       else if (h?.full) latest.current.onReject?.('full', h.step)
+      else trackEvent('drag_released_off_target', { kind: s.item.kind })
       goBack(s)
     }
     setHover(null)

@@ -136,6 +136,7 @@ export default function App() {
 
   const placeError = (e) => {
     console.error(e)
+    trackEvent('place_failed', { code: e.code || 'unknown' })
     if (e.code === 'slot_taken') showToast('Someone just took that spot. Try another one.')
     else if (e.code === 'step_full') showToast('That step just filled up. Try another one.')
     else if (e.code === 'already_placed') showToast('You already have a Bommai on the Golu.')
@@ -187,6 +188,7 @@ export default function App() {
   }
 
   const onReject = (reason, step) => {
+    trackEvent('place_rejected', { reason, step })
     if (reason === 'reserved') showToast('🙏 The top two steps are reserved for the deities and gods.')
     else if (reason === 'full') showToast(`Step ${step} is full. Try another step.`)
   }
@@ -210,8 +212,9 @@ export default function App() {
 
   // Turn the carousel to the next Golu on either side (arrows, arrow keys, or dragging past the edge).
   const turnBy = useCallback(
-    (dir) => {
+    (dir, via = 'swipe') => {
       if (golus < 2) return
+      trackEvent('golu_turned', { via })
       setFocusId(null)
       setTagId(null)
       setTurn((t) => ({ golu: ((t.golu - 1 + dir + golus) % golus) + 1, dir, n: t.n + 1 }))
@@ -220,6 +223,7 @@ export default function App() {
   )
   // the edge arrows name the Golu they turn to, so they turn to it directly
   const turnTo = (golu, dir) => {
+    trackEvent('golu_turned', { via: 'arrow' })
     setFocusId(null)
     setTagId(null)
     goTo(golu, dir)
@@ -229,8 +233,8 @@ export default function App() {
     if (!turnable || golus < 2) return
     const onKey = (e) => {
       if (e.target.closest?.('input, textarea')) return
-      if (e.key === 'ArrowLeft') turnBy(-1)
-      else if (e.key === 'ArrowRight') turnBy(1)
+      if (e.key === 'ArrowLeft') turnBy(-1, 'key')
+      else if (e.key === 'ArrowRight') turnBy(1, 'key')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -239,6 +243,7 @@ export default function App() {
   // Ready to place: if the Golu facing you is full, turn to the nearest one with room.
   const startPlacing = () => {
     setMode('place')
+    trackEvent('placing_started')
     if (free[active - 1] > 0) return
     for (let d = 1; d < golus; d++)
       for (const dir of [1, -1]) {

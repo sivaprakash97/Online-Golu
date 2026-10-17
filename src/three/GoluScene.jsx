@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { trackEvent } from '../lib/analytics.js'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -133,6 +134,7 @@ function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, tur
       g = null
       const dir = turning ? carousel.current?.release() || 0 : 0
       if (commit && dir) turnBy.current?.(dir)
+      else if (commit && turning) trackEvent('golu_swipe_too_short') // tried to turn, didn't get there
     }
     const down = (e) => {
       pointers.add(e.pointerId)

@@ -28,6 +28,8 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 
 Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />` in `src/main.jsx` counts page views, and `trackEvent` in `src/lib/analytics.js` sends the custom events `workshop_opened`, `bommai_placed` (with `golu` and `step`), `bommai_moved`, `bommai_edited` and `bommai_shared`. Nothing is counted from `?sandbox`. Custom events show up under the Events tab on a Vercel Pro plan. For the Bommais already placed (per day, per Golu and step, popular outfits and so on), run `supabase/analytics.sql` in the Supabase SQL editor.
 
+**PostHog** adds funnels, session replay and heatmaps. Create a project at posthog.com, then set `VITE_POSTHOG_KEY` (and `VITE_POSTHOG_HOST` for an EU project) in Vercel's environment variables and redeploy; without the key it stays off. Names typed into the name tag are masked in replays. Funnel: `workshop_opened` → `placing_started` → `drag_started` → `bommai_placed`. Where people get stuck: `drag_released_off_target`, `place_rejected`, `place_failed`, and `golu_turned` (`via` swipe, arrow or key) and `golu_swipe_too_short`.
+
 ## How it's built
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.
