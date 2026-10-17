@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SEED_BOMMAIS } from '../data/seed.js'
-import { normalizeConfig, spotsOnStep, GOLU_COUNT } from '../data/options.js'
+import { normalizeConfig, packAccessory, spotsOnStep, GOLU_COUNT } from '../data/options.js'
 
 // One tiny interface over two backends:
 //   - Supabase (shared, realtime) when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set
@@ -37,6 +37,12 @@ function toPlacementError(e) {
   if (msg.includes('is full')) return placementError('step_full', msg)
   if (e?.code === '23514' || e?.code === '42501') return placementError('locked_step', msg) // check constraint / RLS
   return e
+}
+
+// The recipe as the database stores it: the headwear goes in the accessory column
+function toDb(config) {
+  const { headwear, ...c } = normalizeConfig(config)
+  return { ...c, accessory: packAccessory(headwear, c.accessory) }
 }
 
 function toRow(r) {
@@ -139,7 +145,7 @@ function supabaseStore() {
     async add(config, golu, step, slot) {
       if (!hasGolus && golu !== 1) throw placementError('golu_unavailable', 'Only Golu 1 is open until the second-Golu migration runs')
       const s = await ensureSession()
-      const c = normalizeConfig(config)
+      const c = toDb(config)
       const row = { ...c, name: c.name || 'A friend', step, user_id: s.user.id, ...(hasSlots ? { slot } : {}), ...(hasGolus ? { golu } : {}) }
       const { data, error } = await sb.from('bommais').insert(row).select(columns()).single()
       if (error) throw toPlacementError(error)
@@ -155,7 +161,7 @@ function supabaseStore() {
     async update(id, config) {
       await ensureSession()
       // only the recipe and the name tag; the spot, owner and timestamps stay as they are
-      const { data, error } = await sb.from('bommais').update(normalizeConfig(config)).eq('id', id).select(columns()).single()
+      const { data, error } = await sb.from('bommais').update(toDb(config)).eq('id', id).select(columns()).single()
       // PGRST116: no row came back (not yours); 42501: the edit migration hasn't been applied
       if (error) throw error.code === 'PGRST116' || error.code === '42501' ? placementError('edit_unavailable', error.message) : error
       return toRow(data)

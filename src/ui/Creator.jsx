@@ -13,10 +13,12 @@ import {
   BODIES,
   HAIR_STYLES,
   HAIR_COLORS,
+  HIJAB,
   OUTFITS,
   OUTFIT_COLORS,
   EYES,
   FACE_EXTRAS,
+  HEADWEAR,
   ACCESSORIES,
   POSES,
   randomConfig,
@@ -76,13 +78,16 @@ function Section({ title, children, aside }) {
 }
 
 function Options({ cat, config, set }) {
-  const grid = (items, field, frame) => (
+  const grid = (items, field, frame, pick = (id) => set({ [field]: id })) => (
     <div className="tile-grid">
       {items.map((o) => (
-        <Tile key={o.id} label={o.label} frame={frame} config={{ ...config, [field]: o.id }} selected={config[field] === o.id} onClick={() => set({ [field]: o.id })} />
+        <Tile key={o.id} label={o.label} frame={frame} config={{ ...config, [field]: o.id }} selected={config[field] === o.id} onClick={() => pick(o.id)} />
       ))}
     </div>
   )
+  // putting on a hijab takes off the bindi (every new Bommai starts with one) and vibhuti; they can
+  // go back on under Face
+  const setHeadwear = (id) => set({ headwear: id, ...(id === HIJAB.id ? { face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam') } : {}) })
   switch (cat) {
     case 'body':
       return (
@@ -96,6 +101,7 @@ function Options({ cat, config, set }) {
     case 'hair':
       return (
         <>
+          {config.headwear === HIJAB.id && <p className="hint">Your hijab is covering the hair. Take it off under Accessories to see it.</p>}
           <Section title="Colour">
             <Swatches items={HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hair colour" />
           </Section>
@@ -154,7 +160,12 @@ function Options({ cat, config, set }) {
         </>
       )
     case 'accessory':
-      return <Section title="Carry something">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+      return (
+        <>
+          <Section title="Headwear">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</Section>
+          <Section title="Carriable">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+        </>
+      )
     case 'pose':
       return <Section title="Pose">{grid(POSES, 'pose', 'full')}</Section>
     default:

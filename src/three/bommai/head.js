@@ -109,6 +109,8 @@ export function faceOn(g, cfg, L) {
         }
     }
     g.box(-6, 6, 61, 62, FZ + 1, FZ + 2, f) // bridge
+    // under a hijab the temples tuck in at the edge of the face
+    if (L.hijab) return g.box(-17, 17, 61, 62, FZ + 1, FZ + 2, (x) => (x === -17 || x === 16 ? f : null))
     for (const x of [-HW - 1, HW]) g.box(x, x + 1, 61, 62, 0, FZ + 2, f) // temples
     for (const x of [-HW, HW - 1]) g.box(x, x + 1, 61, 62, FZ - 2, FZ + 2, f)
   }
@@ -189,7 +191,22 @@ function curtains(g, kind, bottom, tone) {
   }
 }
 
+// A hijab, wrapped close around the head and under it, framing the face in an oval. It stands two
+// voxels proud of the face, like the hair; below the head it meets the part over the neck and
+// shoulders, which is drawn with the body (build.js).
+function hijabOn(g, L) {
+  const c = L.hijab
+  const fold = shade(c, -0.06)
+  g.rounded(-HW - 2, HW + 2, HEAD0 - 1, HEAD1 + 3, -HD - 2, HD + 2, 6, (x, y, z) => {
+    if (g.has(x, y, z)) return null
+    const face = ((x + 0.5) / 17) ** 2 + ((y + 0.5 - 61) / 13.5) ** 2 < 1
+    if (z >= HD && face) return null
+    return mod(x - y, 7) === 0 ? fold : c
+  })
+}
+
 export function hairOn(g, cfg, L, { hatted = false } = {}) {
+  if (L.hijab) return hijabOn(g, L)
   const st = STYLES[cfg.hair]
   if (!st) return
   const c = L.hair
@@ -231,7 +248,7 @@ export function hairOn(g, cfg, L, { hatted = false } = {}) {
     for (let y = HEAD0; y < HEAD1; y++)
       if (slab(y)) for (const x of [-HW - 3, HW + 2]) g.box(x, x + 1, y, y + 1, -HD - 1, HD - 2, tone(y))
 
-  if (st.quiff) g.ellipsoid(8, HEAD1 + 2, 8, 13, 7, 10, free((x, y) => (y >= HEAD1 + 6 ? light : mod(y, 4) < 2 ? c : dark)))
+  if (st.quiff && !hatted) g.ellipsoid(8, HEAD1 + 2, 8, 13, 7, 10, free((x, y) => (y >= HEAD1 + 6 ? light : mod(y, 4) < 2 ? c : dark)))
 
   if (st.spikes && !hatted)
     // tall pyramids of hair, the front row leaning forward over the face
