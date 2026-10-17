@@ -369,6 +369,12 @@ input:focus-visible {
   text-align: center;
   animation: pop 0.3s both;
 }
+/* the waiting Bommai's tag can be grabbed to pick the doll up (GoluScene.jsx, DraftOnKolam) */
+.draft-tag {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
 /* a tag that sits on its anchor point instead of being centred on it (fixed-size tags on phones) */
 .tag-above {
   transform: translateY(-50%);
@@ -572,6 +578,42 @@ input:focus-visible {
     opacity: 1;
   }
 }
+/* touch screens: a swipe turns the Golu, and this cue (the top line of the hint) says so, a dot
+   sliding between two chevrons; gold when the Golu facing you is full and the next has room */
+.swipe-cue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.swipe-cue.is-new {
+  color: var(--turmeric);
+}
+.swipe-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: swipe-dot 1.5s ease-in-out infinite;
+}
+@keyframes swipe-dot {
+  0%,
+  100% {
+    transform: translateX(-9px);
+  }
+  50% {
+    transform: translateX(9px);
+  }
+}
+.is-new .swipe-dot {
+  animation-duration: 1.1s;
+}
+
 /* how many spots the Golu facing you has left, under the main button */
 .cta-row.has-note {
   flex-wrap: wrap;
@@ -1073,8 +1115,12 @@ input:focus-visible {
     padding: 12px 18px;
     gap: 8px;
   }
-  .explore-hint {
+  .explore-hint:not(:has(.swipe-cue)),
+  .explore-hint .hint-rest {
     display: none;
+  }
+  .explore-hint .swipe-cue {
+    margin: 0;
   }
 }
 

@@ -53,8 +53,10 @@ const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRU
 // { kind: 'reset' | 'in' | 'out', n } where n changes on every press.
 // With more than one Golu (`carousel`, the Carousel's handle), dragging on past the edge of the orbit
 // turns the stage by hand: let go far enough along (or flick) and `onTurnBy(±1)` turns to the next
-// Golu. Every turn (`turnKey` changes) brings the camera back to the current shot.
-function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey }) {
+// Golu. With `swipe` (touch screens, on the home screen only: while placing, a drag that misses the
+// tiny doll must never turn the stage), a sideways swipe turns the stage straight away instead.
+// Every turn (`turnKey` changes) brings the camera back to the current shot.
+function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
   const ref = useRef()
   const { size, gl } = useThree()
   const aspect = size.width / size.height
@@ -104,38 +106,56 @@ function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, tur
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turnKey])
 
-  // Drag past the edge of the orbit to turn the carousel. camera-controls turns a sideways drag of dx
-  // pixels into 2π·dx/height of azimuth and stops at the limit; whatever the drag would have turned
-  // beyond the limit turns the stage instead, following the finger. Only at the overview (not while
-  // zoomed in on a Bommai), with one finger or the left button, and not while a Bommai is carried
-  // (DragLayer switches the controls off for that).
+  // Turning the carousel by hand. Only at the overview (not while zoomed in on a Bommai), with one
+  // finger or the left button, and not while a Bommai is carried (DragLayer switches the controls
+  // off for that, so a gesture that finds them off has picked up a doll and stands down).
+  // - Mouse: drag past the edge of the orbit. camera-controls turns a sideways drag of dx pixels into
+  //   2π·dx/height of azimuth and stops at the limit; whatever the drag would have turned beyond the
+  //   limit turns the stage instead, following the pointer.
+  // - Touch (`swipe`): once a one-finger drag shows it's sideways, it's a swipe. It takes the gesture
+  //   from the orbit and the stage follows the finger from the start. An up-and-down drag is left to
+  //   the controls (tilting the view).
   const turnBy = useRef(onTurnBy)
   turnBy.current = onTurnBy
   const overview = useRef(true)
   overview.current = shot !== 'focus'
+  const swipeOn = useRef(swipe)
+  swipeOn.current = swipe
   useEffect(() => {
     if (!carousel) return
     const el = gl.domElement
     const pointers = new Set()
-    let g = null // the gesture: { id, x0, az0 }
+    let g = null // the gesture: { id, x0, y0, az0, kind: 'edge' | 'pending' | 'swipe' }
     const end = (commit) => {
       if (!g) return
+      if (g.kind === 'swipe' && ref.current) ref.current.enabled = true // hand the orbit back
+      const turning = g.kind !== 'pending'
       g = null
-      const dir = carousel.current?.release() || 0
+      const dir = turning ? carousel.current?.release() || 0 : 0
       if (commit && dir) turnBy.current?.(dir)
     }
     const down = (e) => {
       pointers.add(e.pointerId)
       const c = ref.current
       if (pointers.size > 1) return end(false) // a pinch: not a turn
-      if (!c || !enabled.current || !overview.current || carousel.current?.busy()) return
+      const touchSwipe = swipeOn.current && e.pointerType === 'touch'
+      if (!c || !(touchSwipe || enabled.current) || !overview.current || carousel.current?.busy()) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
       if (c.distance < limits.current.max * 0.5) return // zoomed right in: just look around
-      g = { id: e.pointerId, x0: e.clientX, az0: c.getSpherical(new THREE.Spherical(), true).theta }
+      g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, az0: c.getSpherical(new THREE.Spherical(), true).theta, kind: touchSwipe ? 'pending' : 'edge' }
     }
     const move = (e) => {
       if (!g || e.pointerId !== g.id) return
       const c = ref.current
+      if (g.kind === 'pending') {
+        const dx = e.clientX - g.x0
+        const dy = e.clientY - g.y0
+        if (Math.hypot(dx, dy) < 10) return
+        if (!c?.enabled || Math.abs(dx) < Math.abs(dy) * 1.2) return end(false) // a doll picked up, or a tilt
+        g.kind = 'swipe'
+        c.enabled = false
+      }
+      if (g.kind === 'swipe') return carousel.current?.drag(clamp((g.x0 - e.clientX) / (el.clientWidth * 0.7), -1, 1))
       if (!c || !c.enabled || !enabled.current) return end(false)
       const h = el.clientHeight
       const az = g.az0 + (2 * Math.PI * (g.x0 - e.clientX)) / h
@@ -370,6 +390,8 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
 }
 
 // Your new Bommai waiting on the kolam: hops a little until you pick it up and drag it onto a step.
+// Its name tag ("Drag me onto a step") picks it up too: on a phone the doll is a few pixels tall and
+// the tag is what people reach for.
 function DraftOnKolam({ draft, onGrab }) {
   const portrait = usePortrait()
   const ref = useRef()
@@ -395,7 +417,7 @@ function DraftOnKolam({ draft, onGrab }) {
         <cylinderGeometry args={[0.6, 0.6, 1.4, 12]} />
       </mesh>
       <Html position={[0, 1.25, 0]} center distanceFactor={portrait ? undefined : 6} style={{ pointerEvents: 'none' }}>
-        <div className={portrait ? 'tag-above' : undefined}>
+        <div className={`draft-tag${portrait ? ' tag-above' : ''}`} onPointerDown={onGrab}>
           <div className="nametag mine">
             <span className="nametag-you">YOU</span>
             {draft.name || 'Your Bommai'}
@@ -434,7 +456,8 @@ function Lights() {
 
 // `golus`: how many Golus stand on the carousel; `turn` ({ golu, dir, n }, see Carousel) says which
 // one faces you. Only that one is interactive: its Bommais, its spots and the draft all live in world
-// space, which is where the Golu facing you stands. `onTurnBy(±1)` asks to turn to the next one.
+// space, which is where the Golu facing you stands. `onTurnBy(±1)` asks to turn to the next one;
+// with `swipeToTurn` (touch screens) a sideways swipe turns it.
 export default function GoluScene({
   bommais,
   golus = 1,
@@ -453,6 +476,7 @@ export default function GoluScene({
   celebrate,
   paused,
   view,
+  swipeToTurn = false,
 }) {
   const active = turn.golu
   // each Golu's Bommais and where they stand on it
@@ -504,6 +528,7 @@ export default function GoluScene({
           carousel={golus > 1 ? carousel : null}
           onTurnBy={onTurnBy}
           turnKey={turn.n}
+          swipe={swipeToTurn && mode === 'home'}
         />
         <GoluLights />
         <Carousel

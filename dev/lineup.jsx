@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import Bommai from '../src/three/bommai/Bommai.jsx'
 import SoftEnv from '../src/three/SoftEnv.jsx'
 import { SEED_BOMMAIS } from '../src/data/seed.js'
-import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES } from '../src/data/options.js'
+import { ACCESSORIES, HEADWEAR, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES } from '../src/data/options.js'
 
 // Dev-only page (not part of the build): `npm run dev`, then open /dev/lineup.html.
 // Shows a row of Bommais under soft studio light, to judge the look of the dolls.
@@ -16,6 +16,7 @@ import { ACCESSORIES, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES
 //   ?set=items           every accessory
 //   ?set=hair            every hairstyle
 //   ?set=pairs           the two-tone outfits (saree, pavadai, crop top + skirt) in every colour
+//   ?set=modest          the hijab, abaya, sharara, thobe and kufi, in the poses that test them
 //   ?only=3              just one of them, close up
 //   ?from=6&n=6          a few of them
 //   ?pick=1,4,7          just these ones
@@ -34,15 +35,28 @@ const POSE_SET = POSES.flatMap((p) => [
 // the faces
 const FACES = ['round', 'sparkle', 'happy', 'sleepy', 'wink', 'dots'].map((face, i) => ({ ...look, face, face_extras: [['blush'], [], ['bindi'], ['glasses', 'mustache'], ['beard'], ['shades', 'namam']][i], outfit: 'kurta', outfit_color: 'kumkum', hair: ['long-wavy', 'puffs', 'ponytail', 'curly', 'spiky', 'low-bun'][i] }))
 const q = new URLSearchParams(location.search)
-// every accessory, standing and holding
-const ITEMS = ACCESSORIES.slice(1).map((a, i) => ({ ...look, name: a.label, accessory: a.id, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: i % 3 === 1 ? 'holding' : 'standing' }))
+// every accessory and every piece of headwear, standing and holding
+const ITEMS = [...ACCESSORIES.slice(1).map((a) => ({ name: a.label, accessory: a.id })), ...HEADWEAR.slice(1).map((h) => ({ name: h.label, headwear: h.id }))].map((item, i) => ({ ...look, ...item, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: i % 3 === 1 ? 'holding' : 'standing' }))
 // every hairstyle, from the front
 const HAIR = HAIR_STYLES.map((h, i) => ({ ...look, name: h.label, hair: h.id, outfit: ['kurta', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], skin_tone: ['wheat', 'honey', 'tan', 'brown'][i % 4], pose: 'standing' }))
 // every colour on the outfits that show its pair
 const PAIRS = OUTFIT_COLORS.flatMap((c, i) =>
   ['silk-saree', 'pavadai', 'crop-skirt'].map((outfit) => ({ ...look, name: `${c.id} + ${c.pair}`, outfit, outfit_color: c.id, hair: ['braid', 'long-wavy', 'ponytail'][i % 3], pose: 'standing' })),
 )
-const SETS = { pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
+// the hijab with the outfits it's often worn with, and the thobe and kufi, through the trickier poses
+const MODEST = [
+  { outfit: 'abaya', outfit_color: 'charcoal', headwear: 'hijab', pose: 'standing' },
+  { outfit: 'sharara', outfit_color: 'mint', headwear: 'hijab', pose: 'namaste', body: 'slim' },
+  { outfit: 'salwar', outfit_color: 'peacock', headwear: 'hijab', pose: 'sitting', face_extras: ['glasses'] },
+  { outfit: 'silk-saree', outfit_color: 'maroon', headwear: 'hijab', pose: 'cross-legged', body: 'round' },
+  { outfit: 'tee-jeans', outfit_color: 'sky', headwear: 'hijab', pose: 'cheering', face: 'sparkle' },
+  { outfit: 'thobe', outfit_color: 'cream', hair: 'short-crop', headwear: 'kufi', accessory: 'filter-coffee', face_extras: ['beard'], pose: 'waving' },
+  { outfit: 'kurta', outfit_color: 'parrot', hair: 'curly', headwear: 'kufi', accessory: 'guitar', face_extras: ['beard', 'mustache'], pose: 'dancing', body: 'round' },
+  { outfit: 'abaya', outfit_color: 'lavender', headwear: 'hijab', pose: 'hips', skin_tone: 'deep-brown' },
+  { outfit: 'thobe', outfit_color: 'sky', hair: 'side-part', headwear: 'kufi', accessory: 'book', pose: 'sitting', skin_tone: 'tan' },
+  { outfit: 'sharara', outfit_color: 'maroon', headwear: 'hijab', pose: 'cross-legged', accessory: 'flowers' },
+].map((c) => ({ ...look, name: `${c.outfit} ${c.pose}`, ...c }))
+const SETS = { modest: MODEST, pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS
 const only = q.get('only')
 const from = +(q.get('from') || 0)
