@@ -163,7 +163,7 @@ function Options({ cat, config, set }) {
       return (
         <>
           <Section title="Headwear">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</Section>
-          <Section title="Carry something">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+          <Section title="Carriable">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
         </>
       )
     case 'pose':
