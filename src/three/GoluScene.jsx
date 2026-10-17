@@ -53,8 +53,9 @@ const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRU
 // { kind: 'reset' | 'in' | 'out', n } where n changes on every press.
 // With more than one Golu (`carousel`, the Carousel's handle), dragging on past the edge of the orbit
 // turns the stage by hand: let go far enough along (or flick) and `onTurnBy(±1)` turns to the next
-// Golu. With `swipe` (touch screens), a sideways swipe turns the stage straight away instead, while
-// exploring or placing. Every turn (`turnKey` changes) brings the camera back to the current shot.
+// Golu. With `swipe` (touch screens, on the home screen only: while placing, a drag that misses the
+// tiny doll must never turn the stage), a sideways swipe turns the stage straight away instead.
+// Every turn (`turnKey` changes) brings the camera back to the current shot.
 function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
   const ref = useRef()
   const { size, gl } = useThree()
@@ -389,6 +390,8 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
 }
 
 // Your new Bommai waiting on the kolam: hops a little until you pick it up and drag it onto a step.
+// Its name tag ("Drag me onto a step") picks it up too: on a phone the doll is a few pixels tall and
+// the tag is what people reach for.
 function DraftOnKolam({ draft, onGrab }) {
   const portrait = usePortrait()
   const ref = useRef()
@@ -414,7 +417,7 @@ function DraftOnKolam({ draft, onGrab }) {
         <cylinderGeometry args={[0.6, 0.6, 1.4, 12]} />
       </mesh>
       <Html position={[0, 1.25, 0]} center distanceFactor={portrait ? undefined : 6} style={{ pointerEvents: 'none' }}>
-        <div className={portrait ? 'tag-above' : undefined}>
+        <div className={`draft-tag${portrait ? ' tag-above' : ''}`} onPointerDown={onGrab}>
           <div className="nametag mine">
             <span className="nametag-you">YOU</span>
             {draft.name || 'Your Bommai'}
@@ -525,7 +528,7 @@ export default function GoluScene({
           carousel={golus > 1 ? carousel : null}
           onTurnBy={onTurnBy}
           turnKey={turn.n}
-          swipe={swipeToTurn && (mode === 'home' || placing)}
+          swipe={swipeToTurn && mode === 'home'}
         />
         <GoluLights />
         <Carousel
