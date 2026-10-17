@@ -26,7 +26,7 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 
 ### Analytics
 
-Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />` in `src/main.jsx` counts page views, and `trackEvent` in `src/lib/analytics.js` sends the custom events `workshop_opened`, `bommai_placed` (with `golu` and `step`), `bommai_moved`, `bommai_edited` and `bommai_shared`. Nothing is counted from `?sandbox`. Custom events show up under the Events tab on a Vercel Pro plan.
+Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />` in `src/main.jsx` counts page views, and `trackEvent` in `src/lib/analytics.js` sends the custom events `workshop_opened`, `bommai_placed` (with `golu` and `step`), `bommai_moved`, `bommai_edited` and `bommai_shared`. Nothing is counted from `?sandbox`. Custom events show up under the Events tab on a Vercel Pro plan. For the Bommais already placed (per day, per Golu and step, popular outfits and so on), run `supabase/analytics.sql` in the Supabase SQL editor.
 
 ## How it's built
 
