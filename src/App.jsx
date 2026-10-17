@@ -3,7 +3,7 @@ import GoluScene from './three/GoluScene.jsx'
 import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
-import { GoluArrow, GoluNow } from './ui/GoluNav.jsx'
+import GoluArrows from './ui/GoluNav.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options.js'
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
@@ -213,6 +213,12 @@ export default function App() {
     },
     [golus],
   )
+  // the edge arrows name the Golu they turn to, so they turn to it directly
+  const turnTo = (golu, dir) => {
+    setFocusId(null)
+    setTagId(null)
+    goTo(golu, dir)
+  }
   const turnable = mode === 'home' || mode === 'place'
   useEffect(() => {
     if (!turnable || golus < 2) return
@@ -272,7 +278,9 @@ export default function App() {
     camera('reset')
   }
 
-  // the main call to action: make one, find yours, or nothing left to take
+  // the main call to action: make one, find yours, or nothing left to take. On a full Golu it says
+  // where yours will go, and turns the stage there on the way into the workshop.
+  const here = free[active - 1] || 0
   const mainCta = hasMine ? (
     <button className="btn-primary" onClick={findMine}>
       Find my Bommai
@@ -281,9 +289,13 @@ export default function App() {
     <button className="btn-primary" disabled>
       The Golu is full
     </button>
-  ) : (
+  ) : here > 0 ? (
     <button className="btn-primary" onClick={startCreate}>
       Add your Bommai
+    </button>
+  ) : (
+    <button className="btn-primary" onClick={() => (goTo(roomy, roomy > active ? 1 : -1), startCreate())}>
+      Add yours to {roomy > active ? 'the new' : 'another'} Golu
     </button>
   )
 
@@ -334,21 +346,24 @@ export default function App() {
             <div className="hud-count">
               <Counter n={count} live={live} />
             </div>
-            {/* the turn arrows flank the main button, so the other Golus are hard to miss */}
-            <div className="cta-row">
-              <GoluArrow dir={-1} count={golus} active={active} free={free} onTurn={turnBy} />
+            <div className="cta-row has-note">
               {mainCta}
               {mine && (
                 <button className="btn-secondary" onClick={startEdit}>
                   Edit
                 </button>
               )}
-              <GoluArrow dir={1} count={golus} active={active} free={free} onTurn={turnBy} />
+              {/* how much room the Golu facing you has left */}
+              {!goluFull && (
+                <p className="cta-note">
+                  <span>{here ? `${here} ${here === 1 ? 'spot' : 'spots'} left` : 'This Golu is full'}</span>
+                </p>
+              )}
             </div>
+            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
             <p className="explore-hint">
               {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around{golus > 1 ? ', further to turn the Golu' : ''} · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
             </p>
-            <GoluNow count={golus} active={active} free={free} />
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">
               <SoundToggle />
@@ -381,23 +396,22 @@ export default function App() {
         {placing && (
           <>
             <header className="place-head">
-              <span className="eyebrow">Last step{golus > 1 ? ` · Golu ${active}` : ''}</span>
+              <span className="eyebrow">Last step</span>
               <h2>Place your Bommai on the Golu</h2>
               <p>
                 {free[active - 1] > 0
                   ? `Pick it up and drop it on any glowing spot (${free[active - 1]} left${golus > 1 ? ' on this Golu' : ''}). The top two steps are reserved for the deities and gods.`
                   : roomy
-                    ? `Golu ${active} is full. Turn to Golu ${roomy} with the arrows.`
+                    ? 'This Golu is full. Turn to the new Golu with the arrow.'
                     : 'Every Golu is full.'}
               </p>
             </header>
             <div className="cta-row">
-              <GoluArrow dir={-1} count={golus} active={active} free={free} onTurn={turnBy} />
               <button className="btn-secondary" onClick={() => setMode('create')}>
                 ← Edit
               </button>
-              <GoluArrow dir={1} count={golus} active={active} free={free} onTurn={turnBy} />
             </div>
+            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
           </>
         )}
 
