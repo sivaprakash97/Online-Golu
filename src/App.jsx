@@ -301,6 +301,16 @@ export default function App() {
 
   const placing = mode === 'place'
   const touch = useMedia(TOUCH)
+  const nextIsNew = !here && roomy > 0
+  const swipeCue = touch && golus > 1 && (
+    <span className={`swipe-cue${nextIsNew ? ' is-new' : ''}`}>
+      <svg viewBox="0 0 44 20" width="44" height="20" aria-hidden>
+        <path d="M7 4L2 10l5 6M37 4l5 6-5 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <circle className="swipe-dot" cx="22" cy="10" r="4.5" fill="currentColor" />
+      </svg>
+      {nextIsNew ? 'Swipe to see the new Golu' : 'Swipe to turn the Golu'}
+    </span>
+  )
   const count = bommais.length
   const live = isLive()
 
@@ -330,6 +340,7 @@ export default function App() {
             celebrate={celebrate}
             paused={mode === 'create' || mode === 'edit'}
             view={view}
+            swipeToTurn={touch}
           />
         </div>
 
@@ -360,9 +371,18 @@ export default function App() {
                 </p>
               )}
             </div>
-            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
+            {!touch && <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />}
             <p className="explore-hint">
-              {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}Drag to look around{golus > 1 ? ', further to turn the Golu' : ''} · {touch ? 'two fingers to zoom and move' : 'scroll to move · pinch to zoom'} · tap a Bommai to see who it is
+              {/* touch screens swipe to turn the Golu (no arrows there): say so, in gold when the
+                  Golu facing you is full and the next one has room */}
+              {swipeCue}
+              <span className="hint-rest">
+                {hasMine && canMoveBommais() ? 'Drag your Bommai to move it · ' : ''}
+                {touch
+                  ? `${golus > 1 ? '' : 'Drag to look around · '}two fingers to zoom and move`
+                  : `Drag to look around${golus > 1 ? ', further to turn the Golu' : ''} · scroll to move · pinch to zoom`}{' '}
+                · tap a Bommai to see who it is
+              </span>
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
             <div className="view-controls" role="group" aria-label="Music and view">
@@ -411,7 +431,7 @@ export default function App() {
                 ← Edit
               </button>
             </div>
-            <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />
+            {!touch && <GoluArrows count={golus} active={active} free={free} onTurn={turnTo} />}
           </>
         )}
 
