@@ -32,9 +32,11 @@ export const HAIR_STYLES = [
   { id: 'low-bun', label: 'Bun with jasmine' },
   { id: 'ponytail', label: 'Ponytail' },
   { id: 'puffs', label: 'Twin puffs' },
-  { id: 'hijab', label: 'Hijab' },
   { id: 'bald', label: 'Shaved' },
 ]
+// A hijab is worn in place of a hairstyle, so it's stored in hair (and its colour in hair_color),
+// but it's picked under Outfit, not with the hairstyles.
+export const HIJAB = { id: 'hijab', label: 'Hijab' }
 
 export const HAIR_COLORS = [
   { id: 'black', color: '#1f1a1c' },
@@ -90,7 +92,7 @@ export const OUTFIT_COLORS = [
 ]
 
 // A hijab is often a different colour from the outfit, so it has its own: black, white, or any of
-// the outfit colours to match. It's kept in hair_color, since a hijab covers the hair.
+// the outfit colours to match.
 export const HIJAB_COLORS = [{ id: 'black', color: '#24222a' }, { id: 'white', color: '#f7f5f0' }, ...OUTFIT_COLORS.map(({ id, color }) => ({ id, color }))]
 
 export const EYES = [
@@ -186,7 +188,7 @@ export function randomConfig(name = '') {
     name,
     body: pick(BODIES).id,
     skin_tone: pick(SKIN_TONES).id,
-    hair: hijab ? 'hijab' : pick(HAIR_STYLES.filter((h) => h.id !== 'hijab')).id,
+    hair: hijab ? HIJAB.id : pick(HAIR_STYLES).id,
     hair_color: hijab ? pick(HIJAB_COLORS).id : Math.random() < 0.7 ? pick(HAIR_COLORS.slice(0, 3)).id : pick(HAIR_COLORS).id,
     outfit: outfit.id,
     outfit_color: Math.random() < 0.5 ? outfit.color : pick(OUTFIT_COLORS).id,
@@ -201,7 +203,7 @@ const byId = (arr) => Object.fromEntries(arr.map((o) => [o.id, o]))
 export const LOOKUP = {
   skin: byId(SKIN_TONES),
   body: byId(BODIES),
-  hair: byId(HAIR_STYLES),
+  hair: byId([...HAIR_STYLES, HIJAB]),
   hairColor: byId(HAIR_COLORS),
   outfit: byId(OUTFITS),
   outfitColor: byId(OUTFIT_COLORS),
@@ -215,7 +217,7 @@ export const LOOKUP = {
 export const pairColor = (colorId) => LOOKUP.outfitColor[LOOKUP.outfitColor[colorId]?.pair]?.color
 export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit[outfitId]?.top)
 // The colours hair_color is picked from: the hair's, or the hijab's. 'black' is in both.
-export const hairColorsFor = (hair) => (hair === 'hijab' ? LOOKUP.hijabColor : LOOKUP.hairColor)
+const hairColorsFor = (hair) => (hair === 'hijab' ? LOOKUP.hijabColor : LOOKUP.hairColor)
 
 // Unknown ids (e.g. an option removed later) fall back to defaults so old rows still render.
 export function normalizeConfig(c = {}) {

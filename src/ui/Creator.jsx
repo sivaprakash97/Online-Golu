@@ -13,6 +13,7 @@ import {
   BODIES,
   HAIR_STYLES,
   HAIR_COLORS,
+  HIJAB,
   HIJAB_COLORS,
   OUTFITS,
   OUTFIT_COLORS,
@@ -23,7 +24,7 @@ import {
   randomConfig,
   pairColor,
   showsPair,
-  hairColorsFor,
+  DEFAULT_CONFIG,
 } from '../data/options.js'
 
 const CATEGORIES = [
@@ -78,6 +79,25 @@ function Section({ title, children, aside }) {
 }
 
 function Options({ cat, config, set }) {
+  // A hijab is picked under Outfit, but it's stored in place of the hairstyle (see HIJAB), so the
+  // hairstyle and hair colour it covers are kept aside to come back when it's taken off, and its
+  // own colour is kept for when it goes back on.
+  const hijab = config.hair === HIJAB.id
+  const under = useRef({ hair: DEFAULT_CONFIG.hair, hair_color: DEFAULT_CONFIG.hair_color })
+  const hijabColor = useRef(hijab ? config.hair_color : 'black')
+  const bare = hijab ? under.current : { hair: config.hair, hair_color: config.hair_color }
+  const hijabTint = hijab ? config.hair_color : hijabColor.current
+  const wearHijab = (on) => {
+    if (on === hijab) return
+    if (on) {
+      under.current = bare
+      // the bindi (every new Bommai starts with one) and vibhuti come off; they can go back on under Face
+      set({ hair: HIJAB.id, hair_color: hijabColor.current, face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam') })
+    } else {
+      hijabColor.current = config.hair_color
+      set(bare)
+    }
+  }
   const grid = (items, field, frame) => (
     <div className="tile-grid">
       {items.map((o) => (
@@ -95,31 +115,16 @@ function Options({ cat, config, set }) {
           <Section title="Build">{grid(BODIES, 'body', 'full')}</Section>
         </>
       )
-    case 'hair': {
-      // a hijab takes its colour from its own swatches; switching to or from one keeps the colour
-      // if it's in both lists (black), and starts at black otherwise. Putting a hijab on takes off
-      // the bindi (every new Bommai starts with one) and vibhuti; they can go back on under Face.
-      const hijab = config.hair === 'hijab'
-      const pickHair = (hair) => {
-        const patch = { hair, hair_color: hairColorsFor(hair)[config.hair_color] ? config.hair_color : 'black' }
-        if (hair === 'hijab' && !hijab) patch.face_extras = config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam')
-        set(patch)
-      }
+    case 'hair':
+      if (hijab) return <p className="hint">The hijab covers the hair. To style the hair, take the hijab off under Outfit.</p>
       return (
         <>
-          <Section title={hijab ? 'Hijab colour' : 'Colour'}>
-            <Swatches items={hijab ? HIJAB_COLORS : HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label={hijab ? 'Hijab colour' : 'Hair colour'} />
+          <Section title="Colour">
+            <Swatches items={HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hair colour" />
           </Section>
-          <Section title="Style">
-            <div className="tile-grid">
-              {HAIR_STYLES.map((o) => (
-                <Tile key={o.id} label={o.label} frame="hair" config={{ ...config, hair: o.id }} selected={config.hair === o.id} onClick={() => pickHair(o.id)} />
-              ))}
-            </div>
-          </Section>
+          <Section title="Style">{grid(HAIR_STYLES, 'hair', 'hair')}</Section>
         </>
       )
-    }
     case 'outfit':
       return (
         <>
@@ -140,6 +145,17 @@ function Options({ cat, config, set }) {
               ))}
             </div>
           </Section>
+          <Section title="Hijab">
+            <div className="tile-grid">
+              <Tile label="No hijab" frame="hair" config={{ ...config, ...bare }} selected={!hijab} onClick={() => wearHijab(false)} />
+              <Tile label="Hijab" frame="hair" config={{ ...config, hair: HIJAB.id, hair_color: hijabTint }} selected={hijab} onClick={() => wearHijab(true)} />
+            </div>
+          </Section>
+          {hijab && (
+            <Section title="Hijab colour">
+              <Swatches items={HIJAB_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hijab colour" />
+            </Section>
+          )}
         </>
       )
     case 'face':
