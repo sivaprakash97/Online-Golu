@@ -45,16 +45,16 @@ const PAIRS = OUTFIT_COLORS.flatMap((c, i) =>
 )
 // the hijab with the outfits it's often worn with, and the thobe and kufi, through the trickier poses
 const MODEST = [
-  { outfit: 'abaya', outfit_color: 'charcoal', hair: 'hijab', hair_color: 'black', pose: 'standing' },
-  { outfit: 'sharara', outfit_color: 'mint', hair: 'hijab', hair_color: 'rose', pose: 'namaste', body: 'slim' },
-  { outfit: 'salwar', outfit_color: 'peacock', hair: 'hijab', hair_color: 'cream', pose: 'sitting', face_extras: ['glasses'] },
-  { outfit: 'silk-saree', outfit_color: 'maroon', hair: 'hijab', hair_color: 'mustard', pose: 'cross-legged', body: 'round' },
-  { outfit: 'tee-jeans', outfit_color: 'sky', hair: 'hijab', hair_color: 'white', pose: 'cheering', face: 'sparkle' },
+  { outfit: 'abaya', outfit_color: 'charcoal', hair: 'hijab', pose: 'standing' },
+  { outfit: 'sharara', outfit_color: 'mint', hair: 'hijab', pose: 'namaste', body: 'slim' },
+  { outfit: 'salwar', outfit_color: 'peacock', hair: 'hijab', pose: 'sitting', face_extras: ['glasses'] },
+  { outfit: 'silk-saree', outfit_color: 'maroon', hair: 'hijab', pose: 'cross-legged', body: 'round' },
+  { outfit: 'tee-jeans', outfit_color: 'sky', hair: 'hijab', pose: 'cheering', face: 'sparkle' },
   { outfit: 'thobe', outfit_color: 'cream', hair: 'short-crop', accessory: 'kufi', face_extras: ['beard'], pose: 'waving' },
   { outfit: 'kurta', outfit_color: 'parrot', hair: 'curly', accessory: 'kufi', face_extras: ['beard', 'mustache'], pose: 'dancing', body: 'round' },
-  { outfit: 'abaya', outfit_color: 'lavender', hair: 'hijab', hair_color: 'lavender', pose: 'hips', skin_tone: 'deep-brown' },
+  { outfit: 'abaya', outfit_color: 'lavender', hair: 'hijab', pose: 'hips', skin_tone: 'deep-brown' },
   { outfit: 'thobe', outfit_color: 'sky', hair: 'side-part', accessory: 'kufi', pose: 'sitting', skin_tone: 'tan' },
-  { outfit: 'sharara', outfit_color: 'maroon', hair: 'hijab', hair_color: 'black', pose: 'cross-legged', accessory: 'flowers' },
+  { outfit: 'sharara', outfit_color: 'maroon', hair: 'hijab', pose: 'cross-legged', accessory: 'flowers' },
 ].map((c) => ({ ...look, name: `${c.outfit} ${c.pose}`, ...c }))
 const SETS = { modest: MODEST, pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS

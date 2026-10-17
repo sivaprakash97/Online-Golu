@@ -1,4 +1,4 @@
-import { LOOKUP, HATS, pairColor } from '../../data/options.js'
+import { LOOKUP, HATS, HIJAB, pairColor } from '../../data/options.js'
 import { VoxelGrid, shiny } from '../voxel/grid.js'
 import { hairOn, faceOn } from './head.js'
 import { itemAt } from './items.js'
@@ -45,9 +45,8 @@ export function resolveLook(cfg) {
   const L = {
     o,
     skin: LOOKUP.skin[cfg.skin_tone].color,
-    // with a hijab, hair_color holds the hijab's colour; a beard then stays black
-    hair: (LOOKUP.hairColor[cfg.hair_color] || LOOKUP.hairColor.black).color,
-    hijab: cfg.hair === 'hijab' ? (LOOKUP.hijabColor[cfg.hair_color] || LOOKUP.hijabColor.black).color : null,
+    hair: LOOKUP.hairColor[cfg.hair_color].color,
+    hijab: cfg.hair === HIJAB.id ? HIJAB.color : null,
     main,
     pair,
     mainFn: patterned(o.pattern, main),

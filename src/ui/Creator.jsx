@@ -14,12 +14,12 @@ import {
   HAIR_STYLES,
   HAIR_COLORS,
   HIJAB,
-  HIJAB_COLORS,
   OUTFITS,
   OUTFIT_COLORS,
   EYES,
   FACE_EXTRAS,
   ACCESSORIES,
+  HATS,
   POSES,
   randomConfig,
   pairColor,
@@ -79,24 +79,23 @@ function Section({ title, children, aside }) {
 }
 
 function Options({ cat, config, set }) {
-  // A hijab is picked under Outfit, but it's stored in place of the hairstyle (see HIJAB), so the
-  // hairstyle and hair colour it covers are kept aside to come back when it's taken off, and its
-  // own colour is kept for when it goes back on.
+  // A hijab is picked under Accessories, but it's stored in place of the hairstyle (see HIJAB), so
+  // the hairstyle it covers is kept aside to come back when it's taken off. It goes on the head, so
+  // it and a hat (or kufi) take each other off.
   const hijab = config.hair === HIJAB.id
-  const under = useRef({ hair: DEFAULT_CONFIG.hair, hair_color: DEFAULT_CONFIG.hair_color })
-  const hijabColor = useRef(hijab ? config.hair_color : 'black')
-  const bare = hijab ? under.current : { hair: config.hair, hair_color: config.hair_color }
-  const hijabTint = hijab ? config.hair_color : hijabColor.current
-  const wearHijab = (on) => {
+  const under = useRef(DEFAULT_CONFIG.hair)
+  const bareHair = hijab ? under.current : config.hair
+  const wearHijab = (on, extra = {}) => {
     if (on === hijab) return
     if (on) {
-      under.current = bare
+      under.current = config.hair
       // the bindi (every new Bommai starts with one) and vibhuti come off; they can go back on under Face
-      set({ hair: HIJAB.id, hair_color: hijabColor.current, face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam') })
-    } else {
-      hijabColor.current = config.hair_color
-      set(bare)
-    }
+      set({
+        hair: HIJAB.id,
+        face_extras: config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam'),
+        ...(HATS.includes(config.accessory) ? { accessory: 'none' } : {}),
+      })
+    } else set({ hair: bareHair, ...extra })
   }
   const grid = (items, field, frame) => (
     <div className="tile-grid">
@@ -116,7 +115,7 @@ function Options({ cat, config, set }) {
         </>
       )
     case 'hair':
-      if (hijab) return <p className="hint">The hijab covers the hair. To style the hair, take the hijab off under Outfit.</p>
+      if (hijab) return <p className="hint">The hijab covers the hair. To style the hair, take the hijab off under Accessories.</p>
       return (
         <>
           <Section title="Colour">
@@ -145,17 +144,6 @@ function Options({ cat, config, set }) {
               ))}
             </div>
           </Section>
-          <Section title="Hijab">
-            <div className="tile-grid">
-              <Tile label="No hijab" frame="hair" config={{ ...config, ...bare }} selected={!hijab} onClick={() => wearHijab(false)} />
-              <Tile label="Hijab" frame="hair" config={{ ...config, hair: HIJAB.id, hair_color: hijabTint }} selected={hijab} onClick={() => wearHijab(true)} />
-            </div>
-          </Section>
-          {hijab && (
-            <Section title="Hijab colour">
-              <Swatches items={HIJAB_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hijab colour" />
-            </Section>
-          )}
         </>
       )
     case 'face':
@@ -187,8 +175,39 @@ function Options({ cat, config, set }) {
           </Section>
         </>
       )
-    case 'accessory':
-      return <Section title="Carry something">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+    case 'accessory': {
+      // hats are shown over the bare hair, and wearing one takes the hijab off
+      const tile = (o) => {
+        const hat = HATS.includes(o.id)
+        return (
+          <Tile
+            key={o.id}
+            label={o.label}
+            frame="full"
+            config={{ ...config, accessory: o.id, ...(hat ? { hair: bareHair } : {}) }}
+            selected={config.accessory === o.id}
+            onClick={() => (hat && hijab ? wearHijab(false, { accessory: o.id }) : set({ accessory: o.id }))}
+          />
+        )
+      }
+      // the hijab goes with the hats; it can be worn with anything held, so its tile toggles
+      const hijabTile = (
+        <Tile
+          key={HIJAB.id}
+          multi
+          label={HIJAB.label}
+          frame="full"
+          config={{ ...config, hair: HIJAB.id, ...(HATS.includes(config.accessory) ? { accessory: 'none' } : {}) }}
+          selected={hijab}
+          onClick={() => wearHijab(!hijab)}
+        />
+      )
+      return (
+        <Section title="Carry something">
+          <div className="tile-grid">{ACCESSORIES.flatMap((o) => (o.id === 'kufi' ? [tile(o), hijabTile] : [tile(o)]))}</div>
+        </Section>
+      )
+    }
     case 'pose':
       return <Section title="Pose">{grid(POSES, 'pose', 'full')}</Section>
     default:
