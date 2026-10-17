@@ -19,6 +19,7 @@ export function initAnalytics() {
       person_profiles: 'identified_only', // visitors are anonymous: no profiles, cheaper events
       persistence: 'localStorage', // no cookies
       capture_heatmaps: true,
+      capture_dead_clicks: true, // PostHog's own misclick detector, shown on heatmaps and in replays
       session_recording: { maskAllInputs: true }, // the name tag a visitor types is never recorded
     })
     posthogOn = true

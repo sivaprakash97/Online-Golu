@@ -30,6 +30,8 @@ Vercel Web Analytics is on (Analytics tab of the Vercel project). `<Analytics />
 
 **PostHog** adds funnels, session replay and heatmaps. Create a project at posthog.com, then set `VITE_POSTHOG_KEY` (and `VITE_POSTHOG_HOST` for an EU project) in Vercel's environment variables and redeploy; without the key it stays off. Names typed into the name tag are masked in replays. Funnel: `workshop_opened` → `placing_started` → `drag_started` → `bommai_placed`. Where people get stuck: `drag_released_off_target`, `place_rejected`, `place_failed`, and `golu_turned` (`via` swipe, arrow or key) and `golu_swipe_too_short`.
 
+**Inside the workshop** (`src/lib/workshopStats.js`): `workshop_category_opened`, `workshop_option_changed`, `workshop_surprise_me`, `workshop_preview_touched`, `workshop_dead_click` (a click on nothing clickable, with the area), `workshop_submit_clicked` (`untouched` is true when someone submits without changing anything) and one `workshop_closed` summary per visit: seconds in total and per tab, tabs visited and not, changes per tab, tabs scrolled, and how it ended (`placed`, `saved`, `back`, `left_page`). PostHog's own dead-click detection is on too.
+
 ## How it's built
 
 - **Vite + React + React Three Fiber (three.js) + drei.** No other UI libraries.

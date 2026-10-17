@@ -8,6 +8,7 @@ import { Cyl, Torus, GOLD } from '../three/prims.jsx'
 import { useThumb } from '../three/Thumbnails.jsx'
 import SoftEnv from '../three/SoftEnv.jsx'
 import { MAX_DPR, PORTRAIT, useMedia } from '../lib/device.js'
+import { useWorkshopStats } from '../lib/workshopStats.js'
 import {
   SKIN_TONES,
   BODIES,
@@ -236,6 +237,12 @@ function Preview({ config, framing = 'full' }) {
 export default function Creator({ initial, onBack, onDone, count, editing = false }) {
   const [config, setConfig] = useState(initial)
   const [cat, setCat] = useState('body')
+  const stats = useWorkshopStats({ categories: CATEGORIES.map((c) => c.id), first: 'body', editing })
+  const openCat = (id, via) => {
+    if (id === cat) return
+    stats.open(id, via)
+    setCat(id)
+  }
   const portrait = useMedia(PORTRAIT)
   const [step, setStep] = useState('style') // style | name (portrait only)
   const naming = portrait && step === 'name'
@@ -244,14 +251,28 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
   const nameRef = useRef()
   const place = () => {
     const name = config.name.trim()
+    stats.submit('place')
     if (!name) {
+      stats.nameMissing()
       setNeedName(true)
       nameRef.current?.focus()
       return
     }
+    stats.outcome(editing ? 'saved' : 'placed')
     onDone({ ...config, name })
   }
-  const set = (patch) => setConfig((c) => ({ ...c, ...patch }))
+  const apply = (patch) => setConfig((c) => ({ ...c, ...patch }))
+  const set = (patch) => {
+    stats.change(cat, patch)
+    apply(patch)
+  }
+  // a click that landed on nothing clickable: where, so the unclear parts of the screen show up
+  const onDeadClick = (e) => {
+    const el = e.target
+    if (el.closest('button, input, label, a, canvas, select, textarea, [role=radio]')) return
+    const area = el.closest('.opt-panel') ? 'options' : el.closest('.preview') ? 'preview' : el.closest('.cat-rail') ? 'tabs' : el.closest('.creator-top') ? 'header' : 'other'
+    stats.deadClick(area, el)
+  }
   const idx = CATEGORIES.findIndex((c) => c.id === cat)
   const gridRef = useRef()
   const railRef = useRef()
@@ -267,9 +288,19 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
   }, [cat, step])
 
   return (
-    <div className={`creator ${portrait ? 'is-portrait' : ''} ${naming ? 'is-naming' : ''}`}>
+    <div className={`creator ${portrait ? 'is-portrait' : ''} ${naming ? 'is-naming' : ''}`} onClick={onDeadClick}>
       <header className="creator-top">
-        <button className="btn-ghost" onClick={naming ? () => setStep('style') : onBack}>
+        <button
+          className="btn-ghost"
+          onClick={
+            naming
+              ? () => setStep('style')
+              : () => {
+                  stats.outcome('back')
+                  onBack()
+                }
+          }
+        >
           <span aria-hidden>←</span> {naming ? 'Back' : 'Golu'}
         </button>
         <div className="creator-title">
@@ -287,7 +318,7 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
       {!naming && (
         <nav className="cat-rail" ref={railRef} aria-label="Categories">
           {CATEGORIES.map((c, i) => (
-            <button key={c.id} className={`cat ${cat === c.id ? 'is-on' : ''}`} onClick={() => setCat(c.id)}>
+            <button key={c.id} className={`cat ${cat === c.id ? 'is-on' : ''}`} onClick={() => openCat(c.id, 'tab')}>
               <span className="cat-num">{String(i + 1).padStart(2, '0')}</span>
               <span className="cat-label">{c.label}</span>
             </button>
@@ -296,7 +327,7 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
       )}
 
       {!naming && (
-        <main className="opt-panel" ref={gridRef}>
+        <main className="opt-panel" ref={gridRef} onScroll={(e) => e.currentTarget.scrollTop > 40 && stats.scrolled(cat)}>
           <div className="opt-head">
             <span className="eyebrow">
               {String(idx + 1).padStart(2, '0')} / {String(CATEGORIES.length).padStart(2, '0')}
@@ -305,7 +336,7 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
           </div>
           <Options cat={cat} config={config} set={set} />
           {idx < CATEGORIES.length - 1 && (
-            <button className="btn-next" onClick={() => setCat(CATEGORIES[idx + 1].id)}>
+            <button className="btn-next" onClick={() => openCat(CATEGORIES[idx + 1].id, 'next')}>
               Next: {CATEGORIES[idx + 1].label} →
             </button>
           )}
@@ -314,7 +345,7 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
 
       {/* stays mounted between the two phone steps, so the 3D preview isn't rebuilt */}
       <aside className="preview">
-        <div className="preview-stage">
+        <div className="preview-stage" onPointerDown={(e) => e.target.tagName === 'CANVAS' && stats.previewTouched()}>
           <Preview config={config} framing={!portrait || naming ? 'full' : cat === 'hair' || cat === 'face' ? 'head' : 'near'} />
           {naming ? (
             <div className="preview-tag" aria-hidden>
@@ -324,7 +355,14 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
               </div>
             </div>
           ) : (
-            <button className="btn-dice" onClick={() => set(randomConfig(config.name))} title="Surprise me">
+            <button
+              className="btn-dice"
+              onClick={() => {
+                stats.surprise()
+                apply(randomConfig(config.name))
+              }}
+              title="Surprise me"
+            >
               <span aria-hidden>🎲</span> Surprise me
             </button>
           )}
@@ -364,7 +402,13 @@ export default function Creator({ initial, onBack, onDone, count, editing = fals
 
       {portrait && !naming && (
         <footer className="creator-foot">
-          <button className="btn-primary btn-place" onClick={() => setStep('name')}>
+          <button
+            className="btn-primary btn-place"
+            onClick={() => {
+              stats.submit('done')
+              setStep('name')
+            }}
+          >
             Done <span aria-hidden>→</span>
           </button>
         </footer>
