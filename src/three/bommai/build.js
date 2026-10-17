@@ -1,4 +1,4 @@
-import { LOOKUP, pairColor } from '../../data/options.js'
+import { LOOKUP, HATS, pairColor } from '../../data/options.js'
 import { VoxelGrid, shiny } from '../voxel/grid.js'
 import { hairOn, faceOn } from './head.js'
 import { itemAt } from './items.js'
@@ -45,7 +45,9 @@ export function resolveLook(cfg) {
   const L = {
     o,
     skin: LOOKUP.skin[cfg.skin_tone].color,
-    hair: LOOKUP.hairColor[cfg.hair_color].color,
+    // with a hijab, hair_color holds the hijab's colour; a beard then stays black
+    hair: (LOOKUP.hairColor[cfg.hair_color] || LOOKUP.hairColor.black).color,
+    hijab: cfg.hair === 'hijab' ? (LOOKUP.hijabColor[cfg.hair_color] || LOOKUP.hijabColor.black).color : null,
     main,
     pair,
     mainFn: patterned(o.pattern, main),
@@ -71,13 +73,16 @@ export function resolveLook(cfg) {
   if (['tee', 'shirt'].includes(o.top) && o.id !== 'shirt-pants') L.sleeves = 'short'
   if (o.id === 'dress') L.sleeves = 'puff'
   if (o.bottom === 'dhoti') L.pants = '#f8f3e6'
+  if (o.bottom === 'sharara') L.pants = main
   L.drapeColor = o.drape === 'davani' ? pair : o.drape === 'angavastram' ? '#f8f3e6' : o.drape === 'dupatta' ? shade(main, 0.16) : main
   // footwear follows the outfit
-  if (['saree', 'skirt', 'dhoti'].includes(o.bottom) || ['kurta', 'salwar'].includes(o.id)) L.shoes = 'bare'
+  if (['saree', 'skirt', 'dhoti'].includes(o.bottom) || ['kurta', 'salwar', 'thobe'].includes(o.id)) L.shoes = 'bare'
   if (['tee-jeans', 'hoodie', 'crop-skirt'].includes(o.id)) L.shoes = 'sneakers'
   if (o.id === 'jumpsuit') (L.shoes = 'flats'), (L.shoeColor = '#3a2a26')
   if (o.id === 'sherwani') L.shoeColor = '#c99a3a'
   if (o.id === 'dress') (L.shoes = 'flats'), (L.shoeColor = shade(main, -0.18))
+  if (o.id === 'abaya') (L.shoes = 'flats'), (L.shoeColor = '#2a2226')
+  if (o.id === 'sharara') (L.shoes = 'flats'), (L.shoeColor = '#c99a3a')
   return L
 }
 
@@ -126,7 +131,7 @@ function foot(g, L, x0, x1, z0 = -3) {
 
 function legColor(L) {
   const bottom = L.o.bottom
-  if (bottom === 'pants' || bottom === 'dhoti') return () => L.pants
+  if (['pants', 'dhoti', 'robe', 'sharara'].includes(bottom)) return () => L.pants
   return () => L.skin
 }
 
@@ -183,12 +188,14 @@ function flared(g, B, top, bot, every, color, extra = 0) {
   }
 }
 const flareAt = (B, top, y, every, extra = 0) => B.td / 2 + Math.floor((top - 1 - y) / every) + extra
+// the border along the hem when sitting: gold, except on a robe, which only has a seam
+const hem = (L) => (L.o.bottom === 'dhoti' ? shiny(GOLD) : L.o.bottom === 'robe' ? shade(L.main, -0.08) : shiny(L.accent))
 
 function lap(g, L, B) {
   // the skirt of someone sitting cross-legged, spread over the knees
   const w = B.tw / 2 + 7
   const c = L.o.bottom === 'dhoti' ? () => L.pants : L.mainFn
-  const border = L.o.bottom === 'dhoti' ? shiny(GOLD) : shiny(L.accent)
+  const border = hem(L)
   g.rounded(-w, w, PED, PED + 9, -B.td / 2 - 3, 12, 3.5, (x, y, z) => (y < PED + 2 ? border : c(x, y, z)))
 }
 
@@ -196,7 +203,7 @@ function lowerBody(g, L, B, pose) {
   const { bottom, id } = L.o
   const hz = B.td / 2
   if (pose === 'cross-legged') {
-    if (['saree', 'skirt', 'dhoti', 'dress', 'maxi'].includes(bottom)) lap(g, L, B)
+    if (['saree', 'skirt', 'dhoti', 'dress', 'maxi', 'robe', 'sharara'].includes(bottom)) lap(g, L, B)
     return
   }
   if (pose === 'sitting') {
@@ -206,7 +213,7 @@ function lowerBody(g, L, B, pose) {
     g.rounded(-B.tw / 2 - 2, B.tw / 2 + 2, 16, HIP + 1, -hz - 2, 16, 2, c)
     if (long) {
       g.rounded(-B.tw / 2 - 2, B.tw / 2 + 2, PED + 3, 17, 11, 16, 1.5, c)
-      g.box(-B.tw / 2 - 2, B.tw / 2 + 2, PED + 3, PED + 5, 11, 16, (x, y, z) => (g.has(x, y, z) ? (bottom === 'dhoti' ? shiny(GOLD) : shiny(L.accent)) : null))
+      g.box(-B.tw / 2 - 2, B.tw / 2 + 2, PED + 3, PED + 5, 11, 16, (x, y, z) => (g.has(x, y, z) ? hem(L) : null))
     } else g.box(-B.tw / 2 - 2, B.tw / 2 + 2, 16, 18, -hz - 2, 16, (x, y, z) => (g.has(x, y, z) ? WHITE : null))
     return
   }
@@ -249,6 +256,24 @@ function lowerBody(g, L, B, pose) {
     flared(g, B, HIP, 12, 2, L.mainFn)
     flared(g, B, 14, 12, 2, WHITE, 5)
   }
+  if (bottom === 'robe') {
+    // to the ankles, the feet peeking out: an abaya flares gently and has an embroidered band down
+    // the front; a thobe falls nearly straight
+    const every = id === 'abaya' ? 5 : 9
+    flared(g, B, HIP, PED + 3, every, L.mainFn)
+    if (id === 'abaya') for (let y = PED + 3; y < HIP; y++) g.box(-1, 1, y, y + 1, flareAt(B, HIP, y, every) - 1, flareAt(B, HIP, y, every), shiny(L.accent))
+    return
+  }
+  if (bottom === 'sharara') {
+    // wide pants that flare from the hip and pool at the feet, with a gold band at the hem; a seam
+    // down the middle and a split between the legs at the bottom show they're pants, not a skirt
+    flared(g, B, HIP, PED + 1, 3, (x, y, z) => (y < PED + 3 ? shiny(L.accent) : y === PED + 3 ? shade(L.accent, -0.25) : L.mainFn(x, y, z)))
+    for (let y = PED + 5; y < HIP - 1; y++) {
+      const z = flareAt(B, HIP, y, 3)
+      for (const x of [-1, 0]) (g.paint(x, y, z - 1, shade(L.main, -0.12)), g.paint(x, y, -z, shade(L.main, -0.12)))
+    }
+    g.box(-1, 1, PED + 1, PED + 5, -B.td, B.td, false) // the split (false clears)
+  }
 }
 
 // ── torso, tunics, necklines ────────────────────────────────────────────────
@@ -262,6 +287,7 @@ function torso(g, L, B, pose) {
   // the body, with its shoulders and sides rounded off
   g.rounded(-x1, x1, HIP - 6, SHOULDER + 1, -z1, z1, 2.5, (x, y, z) => (y < HIP ? null : L.topFn(x, y, z)))
   const front = z1 - 1
+  const kameez = ['salwar', 'sharara'].includes(o.id) // a ladies' kurta, with no placket
 
   // tunic tails below the waist
   if (o.topLength > 1) {
@@ -270,7 +296,7 @@ function torso(g, L, B, pose) {
       const k = 1 + Math.floor((HIP - 1 - y) / 5)
       g.rounded(-x1 - k, x1 + k, y, y + 1, -z1 - k, z1 + k, 2.5, (x, yy, z) => (yy < bot + 2 && o.accent ? shiny(o.accent) : L.topFn(x, yy, z)))
     }
-    if (o.id === 'kurta' || o.id === 'salwar') {
+    if (o.id === 'kurta' || kameez) {
       // side slits
       const k = 1 + Math.floor((HIP - 1 - bot) / 5)
       for (let y = bot; y < bot + 6 && !sitting; y++) for (let z = -z1 - k; z < z1 + k; z++) for (const x of [-x1 - k, x1 + k - 1]) if (Math.abs(z + 0.5) < 1.5) g.set(x, y, z, null)
@@ -278,8 +304,8 @@ function torso(g, L, B, pose) {
   }
   if (o.topLength > 1 && o.accent) {
     // placket and a mandarin collar
-    if (o.id !== 'salwar') g.box(-1, 1, SHOULDER - 12, SHOULDER, front, z1 + 1, shiny(o.accent))
-    if (o.id === 'salwar') g.box(-3, 3, SHOULDER - 6, SHOULDER, front, z1, (x, y) => (Math.abs(x + 0.5) < 3 - (SHOULDER - 1 - y) / 2 ? L.skin : null))
+    if (!kameez) g.box(-1, 1, SHOULDER - 12, SHOULDER, front, z1 + 1, shiny(o.accent))
+    if (kameez) g.box(-3, 3, SHOULDER - 6, SHOULDER, front, z1, (x, y) => (Math.abs(x + 0.5) < 3 - (SHOULDER - 1 - y) / 2 ? L.skin : null))
     g.rounded(-5, 5, SHOULDER - 1, SHOULDER + 2, -5, 5, 1.5, o.id === 'sherwani' ? shiny(GOLD) : shade(L.main, -0.1))
     if (o.id === 'sherwani') for (let y = sitting ? HIP : HIP - 12; y < SHOULDER - 3; y += 4) proud(g, 0, y, z1 + 1, shiny(GOLD))
   }
@@ -339,6 +365,18 @@ function torso(g, L, B, pose) {
       g.box(-1, 1, HIP, HIP + 2, front, z1 + 1, shiny(GOLD))
     }
   }
+  if (o.id === 'thobe') {
+    // a band collar and a buttoned placket
+    const d = shade(L.main, -0.06)
+    g.rounded(-5, 5, SHOULDER - 1, SHOULDER + 2, -5, 5, 1.5, d)
+    g.box(-1, 1, SHOULDER - 12, SHOULDER, front, z1 + 1, d)
+    for (const y of [SHOULDER - 3, SHOULDER - 7, SHOULDER - 11]) g.box(-1, 1, y, y + 1, z1, z1 + 1, shade(L.main, -0.3))
+  }
+  if (o.id === 'abaya') {
+    // a round neck, and the embroidered band carried on up the front
+    g.box(-3, 3, SHOULDER - 2, SHOULDER + 1, front - 1, z1, L.skin)
+    g.box(-1, 1, HIP, SHOULDER - 2, front, z1, shiny(o.accent))
+  }
   if (o.top === 'hoodie') {
     const d = shade(L.main, -0.1)
     g.rounded(-7, 7, SHOULDER - 4, SHOULDER + 4, -z1 - 4, -z1 + 3, 2.5, d) // hood
@@ -350,6 +388,21 @@ function torso(g, L, B, pose) {
   // neck
   g.box(-4, 4, SHOULDER, HEAD0 + 2, -4, 4, L.skin)
   drape(g, L, B, pose)
+  if (L.hijab) hijabDrape(g, L, B)
+}
+
+// The part of a hijab below the head (the rest is drawn with the hair, from HEAD0 - 1 up): wrapped
+// round the neck, over the tops of the shoulders, and falling to a rounded point over the chest
+// and the back. It stays narrower than the body below the shoulders, so the arms are drawn over it.
+function hijabDrape(g, L, B) {
+  const x1 = B.tw / 2
+  const z1 = B.td / 2
+  const c = (x, y) => (mod(x - y, 7) === 0 ? shade(L.hijab, -0.06) : L.hijab) // soft folds
+  g.rounded(-x1 - 4, x1 + 4, SHOULDER - 1, HEAD0 - 1, -z1 - 3, z1 + 3, 2, c)
+  for (let y = SHOULDER - 10; y < SHOULDER - 1; y++) {
+    const w = Math.min(x1, 3 + Math.round((y - (SHOULDER - 10)) * 0.9))
+    g.rounded(-w, w, y, y + 1, -z1 - 1, z1 + 1, Math.min(2, w / 2), c, true)
+  }
 }
 
 function drape(g, L, B, pose) {
@@ -492,8 +545,6 @@ export function carryMode(acc, pose) {
   }
   return acc.hold
 }
-
-const HATS = ['cap', 'beanie', 'fedora']
 
 // Returns { body, parts }: `body` is the doll and its pedestal; each part is a piece that moves
 // on its own ({ grid, anim, pivot, side }): the waving forearm, a nodding head, cheering arms, the

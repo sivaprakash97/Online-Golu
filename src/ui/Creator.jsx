@@ -13,6 +13,7 @@ import {
   BODIES,
   HAIR_STYLES,
   HAIR_COLORS,
+  HIJAB_COLORS,
   OUTFITS,
   OUTFIT_COLORS,
   EYES,
@@ -22,6 +23,7 @@ import {
   randomConfig,
   pairColor,
   showsPair,
+  hairColorsFor,
 } from '../data/options.js'
 
 const CATEGORIES = [
@@ -93,15 +95,31 @@ function Options({ cat, config, set }) {
           <Section title="Build">{grid(BODIES, 'body', 'full')}</Section>
         </>
       )
-    case 'hair':
+    case 'hair': {
+      // a hijab takes its colour from its own swatches; switching to or from one keeps the colour
+      // if it's in both lists (black), and starts at black otherwise. Putting a hijab on takes off
+      // the bindi (every new Bommai starts with one) and vibhuti; they can go back on under Face.
+      const hijab = config.hair === 'hijab'
+      const pickHair = (hair) => {
+        const patch = { hair, hair_color: hairColorsFor(hair)[config.hair_color] ? config.hair_color : 'black' }
+        if (hair === 'hijab' && !hijab) patch.face_extras = config.face_extras.filter((e) => e !== 'bindi' && e !== 'namam')
+        set(patch)
+      }
       return (
         <>
-          <Section title="Colour">
-            <Swatches items={HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label="Hair colour" />
+          <Section title={hijab ? 'Hijab colour' : 'Colour'}>
+            <Swatches items={hijab ? HIJAB_COLORS : HAIR_COLORS} value={config.hair_color} onPick={(v) => set({ hair_color: v })} label={hijab ? 'Hijab colour' : 'Hair colour'} />
           </Section>
-          <Section title="Style">{grid(HAIR_STYLES, 'hair', 'hair')}</Section>
+          <Section title="Style">
+            <div className="tile-grid">
+              {HAIR_STYLES.map((o) => (
+                <Tile key={o.id} label={o.label} frame="hair" config={{ ...config, hair: o.id }} selected={config.hair === o.id} onClick={() => pickHair(o.id)} />
+              ))}
+            </div>
+          </Section>
         </>
       )
+    }
     case 'outfit':
       return (
         <>

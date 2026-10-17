@@ -106,6 +106,11 @@ const HEAD_ITEMS = {
     g.rounded(-7, 7, HEAD1 + 9, HEAD1 + 13, -10, 8, 3, false) // the pinch in the crown
     g.box(-HW - 3, HW + 3, 79, 84, -HD - 3, HD + 3, (x, y, z) => (g.has(x, y, z) && Math.abs(x + 0.5) < 34 - 9 ? '#2a211c' : null)) // band
   },
+  // a white crocheted skullcap, close on the crown
+  kufi(g) {
+    const c = '#f4f1ea'
+    g.rounded(-HW - 3, HW + 3, 75, HEAD1 + 8, -HD - 3, HD + 3, 9, (x, y, z) => (y < 77 ? shade(c, -0.08) : mod(x + z, 3) === 0 && mod(y, 2) === 0 ? shade(c, -0.12) : c))
+  },
   // a little cloud floating over the head (drawn in its own grid, so it can bob)
   cloud(g) {
     const top = HEAD1 + 21

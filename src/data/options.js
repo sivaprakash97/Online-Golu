@@ -32,6 +32,7 @@ export const HAIR_STYLES = [
   { id: 'low-bun', label: 'Bun with jasmine' },
   { id: 'ponytail', label: 'Ponytail' },
   { id: 'puffs', label: 'Twin puffs' },
+  { id: 'hijab', label: 'Hijab' },
   { id: 'bald', label: 'Shaved' },
 ]
 
@@ -46,7 +47,8 @@ export const HAIR_COLORS = [
   { id: 'blonde', color: '#dcbf86' },
 ]
 
-// bottom: pants | skirt | saree | dhoti | dress | maxi (an ankle-length skirt)
+// bottom: pants | skirt | saree | dhoti | dress | maxi (an ankle-length skirt) | robe (an ankle-length
+//   abaya or thobe) | sharara (wide flared pants)
 // topLength: how far down the top reaches (1 = waist, 1.6 = knee-length tunic)
 // pattern: woven into the voxels of the main colour (butta = little gold motifs, dots = a light print)
 // The blouse and davani (saree, pavadai), the crop top and the jumpsuit's belt take the colour's pair.
@@ -57,9 +59,12 @@ export const OUTFITS = [
   { id: 'dress', label: 'Dress', bottom: 'dress', accent: '#ffffff', color: 'peacock' },
   { id: 'crop-skirt', label: 'Crop top + skirt', bottom: 'maxi', top: 'crop', pattern: 'dots', color: 'peacock' },
   { id: 'jumpsuit', label: 'Jumpsuit', bottom: 'pants', top: 'jumpsuit', color: 'maroon' },
+  { id: 'abaya', label: 'Abaya', bottom: 'robe', accent: '#e8b33c', color: 'charcoal' },
+  { id: 'sharara', label: 'Sharara', bottom: 'sharara', topLength: 1.3, drape: 'dupatta', accent: '#e8b33c', color: 'mint' },
   { id: 'kurta', label: 'Kurta', bottom: 'pants', topLength: 1.5, accent: '#e8b33c', pants: '#f3ead7', color: 'turmeric' },
   { id: 'veshti', label: 'Veshti + shirt', bottom: 'dhoti', top: 'shirt', drape: 'angavastram', accent: '#e8b33c', color: 'cream' },
   { id: 'sherwani', label: 'Sherwani', bottom: 'pants', topLength: 1.7, accent: '#e8b33c', pants: '#f3ead7', color: 'maroon' },
+  { id: 'thobe', label: 'Thobe', bottom: 'robe', color: 'cream' },
   { id: 'shirt-pants', label: 'Shirt + pants', bottom: 'pants', top: 'shirt', pants: '#3d4660', color: 'sky' },
   { id: 'tee-jeans', label: 'Tee + jeans', bottom: 'pants', top: 'tee', pants: '#3b5b8c', color: 'kumkum' },
   { id: 'hoodie', label: 'Hoodie', bottom: 'pants', top: 'hoodie', pants: '#2f2f38', color: 'lavender' },
@@ -83,6 +88,10 @@ export const OUTFIT_COLORS = [
   { id: 'cream', color: '#f3ead7', pair: 'kumkum' },
   { id: 'charcoal', color: '#2e2f38', pair: 'turmeric' },
 ]
+
+// A hijab is often a different colour from the outfit, so it has its own: black, white, or any of
+// the outfit colours to match. It's kept in hair_color, since a hijab covers the hair.
+export const HIJAB_COLORS = [{ id: 'black', color: '#24222a' }, { id: 'white', color: '#f7f5f0' }, ...OUTFIT_COLORS.map(({ id, color }) => ({ id, color }))]
 
 export const EYES = [
   { id: 'round', label: 'Round' },
@@ -123,6 +132,7 @@ export const ACCESSORIES = [
   { id: 'cap', label: 'Cap', hold: 'head' },
   { id: 'beanie', label: 'Beanie', hold: 'head' },
   { id: 'fedora', label: 'Hat', hold: 'head' },
+  { id: 'kufi', label: 'Kufi', hold: 'head' },
   { id: 'headphones', label: 'Headphones', hold: 'head' },
   { id: 'cloud', label: 'Little cloud', hold: 'head' },
   { id: 'backpack', label: 'Backpack', hold: 'back' },
@@ -161,22 +171,28 @@ export const DEFAULT_CONFIG = {
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
+// Hats sit on the hair, so a Bommai wears one of these or a hijab, not both.
+export const HATS = ['cap', 'beanie', 'fedora', 'kufi']
+
 export function randomConfig(name = '') {
   const outfit = pick(OUTFITS)
-  const extras = FACE_EXTRAS.filter(() => Math.random() < 0.18).map((e) => e.id)
+  // an abaya comes with a hijab, a salwar or sharara sometimes; no other outfit gets one by chance
+  const hijab = outfit.id === 'abaya' || (['salwar', 'sharara'].includes(outfit.id) && Math.random() < 0.35)
+  let extras = FACE_EXTRAS.filter(() => Math.random() < 0.18).map((e) => e.id)
+  if (hijab) extras = extras.filter((e) => !['bindi', 'namam', 'mustache', 'beard'].includes(e))
   // keep it readable: never both glasses kinds
   const face_extras = extras.includes('shades') ? extras.filter((e) => e !== 'glasses') : extras
   return {
     name,
     body: pick(BODIES).id,
     skin_tone: pick(SKIN_TONES).id,
-    hair: pick(HAIR_STYLES).id,
-    hair_color: Math.random() < 0.7 ? pick(HAIR_COLORS.slice(0, 3)).id : pick(HAIR_COLORS).id,
+    hair: hijab ? 'hijab' : pick(HAIR_STYLES.filter((h) => h.id !== 'hijab')).id,
+    hair_color: hijab ? pick(HIJAB_COLORS).id : Math.random() < 0.7 ? pick(HAIR_COLORS.slice(0, 3)).id : pick(HAIR_COLORS).id,
     outfit: outfit.id,
     outfit_color: Math.random() < 0.5 ? outfit.color : pick(OUTFIT_COLORS).id,
     face: pick(EYES).id,
     face_extras,
-    accessory: pick(ACCESSORIES.slice(1)).id,
+    accessory: pick(ACCESSORIES.slice(1).filter((a) => !hijab || !HATS.includes(a.id))).id,
     pose: pick(POSES).id,
   }
 }
@@ -189,6 +205,7 @@ export const LOOKUP = {
   hairColor: byId(HAIR_COLORS),
   outfit: byId(OUTFITS),
   outfitColor: byId(OUTFIT_COLORS),
+  hijabColor: byId(HIJAB_COLORS),
   eyes: byId(EYES),
   accessory: byId(ACCESSORIES),
   pose: byId(POSES),
@@ -197,17 +214,20 @@ export const LOOKUP = {
 // A colour's pair (see OUTFIT_COLORS), and whether an outfit shows it big enough to put on the swatch.
 export const pairColor = (colorId) => LOOKUP.outfitColor[LOOKUP.outfitColor[colorId]?.pair]?.color
 export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit[outfitId]?.top)
+// The colours hair_color is picked from: the hair's, or the hijab's. 'black' is in both.
+export const hairColorsFor = (hair) => (hair === 'hijab' ? LOOKUP.hijabColor : LOOKUP.hairColor)
 
 // Unknown ids (e.g. an option removed later) fall back to defaults so old rows still render.
 export function normalizeConfig(c = {}) {
   const ok = (table, v, d) => (v && table[v] ? v : d)
   const D = DEFAULT_CONFIG
+  const hair = ok(LOOKUP.hair, c.hair, D.hair)
   return {
     name: (c.name || '').slice(0, 24),
     body: ok(LOOKUP.body, c.body, D.body),
     skin_tone: ok(LOOKUP.skin, c.skin_tone, D.skin_tone),
-    hair: ok(LOOKUP.hair, c.hair, D.hair),
-    hair_color: ok(LOOKUP.hairColor, c.hair_color, D.hair_color),
+    hair,
+    hair_color: ok(hairColorsFor(hair), c.hair_color, D.hair_color),
     outfit: ok(LOOKUP.outfit, RETIRED_OUTFITS[c.outfit] || c.outfit, D.outfit),
     outfit_color: ok(LOOKUP.outfitColor, c.outfit_color, D.outfit_color),
     face: ok(LOOKUP.eyes, c.face, D.face),
