@@ -1,32 +1,99 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { normalizeConfig } from '../../data/options.js'
-import { meshGrid, VOXEL_MATERIALS } from '../voxel/mesh.js'
-import { buildBommai, VOXEL } from './build.js'
+import { geometryFrom, VOXEL_MATERIALS } from '../voxel/mesh.js'
+import { buildLook, lookKey } from './looks.js'
 
 // A Bommai is a voxel doll about 1 unit tall standing on a little lacquered pedestal, like a
 // real Golu doll. It faces +z. Origin = bottom centre of the pedestal. The doll is drawn voxel
 // by voxel in build.js and merged into one mesh, plus a mesh for each part its pose moves (a
 // waving forearm, a nodding head, cheering arms, swaying hips, a dancing body), and identical
-// looks share their geometry.
+// looks share their geometry (looks.js).
 
 const cache = new Map()
 const MAX_CACHED = 600
 
-function geometryFor(cfg) {
-  const { name, ...look } = cfg
-  const key = JSON.stringify(look)
-  let hit = cache.get(key)
-  if (!hit) {
-    const { body, parts } = buildBommai(cfg)
-    hit = {
-      body: meshGrid(body, VOXEL),
-      parts: parts.map((p) => ({ geo: meshGrid(p.grid, VOXEL), anim: p.anim, side: p.side || 1, arg: p.arg, hidden: !!p.hidden, parent: p.parent ?? -1, pivot: p.pivot.map((v) => v * VOXEL) })),
-    }
-    if (cache.size >= MAX_CACHED) cache.delete(cache.keys().next().value) // oldest look; React may still hold it, so no dispose
-    cache.set(key, hit)
-  }
+function remember(key, look) {
+  const hit = { body: geometryFrom(look.body), parts: look.parts.map(({ mesh, ...p }) => ({ ...p, geo: geometryFrom(mesh) })) }
+  if (cache.size >= MAX_CACHED) cache.delete(cache.keys().next().value) // oldest look; React may still hold it, so no dispose
+  cache.set(key, hit)
   return hit
+}
+
+function geometryFor(cfg) {
+  const key = lookKey(cfg)
+  return cache.get(key) || remember(key, buildLook(cfg))
+}
+
+// Building a doll takes a few tens of milliseconds, and a whole Golu of them at once froze the page
+// on load. prebuildLooks builds them in a few workers instead, and resolves when they're all ready.
+// A Bommai whose look is on its way draws nothing until it arrives; any other look (the Creator's
+// preview, a doll that has just joined) is built on the spot.
+const pending = new Map() // look key -> promise that resolves once it is in the cache
+let pool
+const jobs = new Map() // job id -> { resolve, worker }
+let nextJob = 0
+
+function workers() {
+  if (pool !== undefined) return pool
+  pool = null
+  if (typeof Worker === 'undefined') return pool
+  try {
+    const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1))
+    pool = Array.from({ length: n }, () => {
+      const w = new Worker(new URL('./looks.worker.js', import.meta.url), { type: 'module' })
+      w.onmessage = ({ data: { id, look } }) => {
+        jobs.get(id)?.resolve(look)
+        jobs.delete(id)
+      }
+      // a worker that fails to start: its looks get built on the spot instead
+      w.onerror = (e) => {
+        console.warn('[golu] Bommai worker failed', e.message || e)
+        for (const [id, job] of jobs) if (job.worker === w) (job.resolve(null), jobs.delete(id))
+      }
+      return w
+    })
+  } catch (e) {
+    console.warn('[golu] no Bommai workers, building on the main thread', e)
+  }
+  return pool
+}
+
+export function prebuildLooks(configs) {
+  const ws = workers()
+  const waits = []
+  for (const c of configs) {
+    const cfg = normalizeConfig(c)
+    const key = lookKey(cfg)
+    if (cache.has(key)) continue
+    if (!pending.has(key)) {
+      if (!ws) continue
+      const id = nextJob++
+      const worker = ws[id % ws.length]
+      const built = new Promise((resolve) => jobs.set(id, { resolve, worker })).then((look) => {
+        pending.delete(key)
+        if (look && !cache.has(key)) remember(key, look)
+      })
+      pending.set(key, built)
+      worker.postMessage({ id, cfg })
+    }
+    waits.push(pending.get(key))
+  }
+  return Promise.all(waits)
+}
+
+// the geometry for a look, or null while a worker is still building it
+function useLook(cfg) {
+  const key = useMemo(() => lookKey(cfg), [cfg])
+  const wait = cache.has(key) ? null : pending.get(key)
+  const [, arrived] = useState(0)
+  useEffect(() => {
+    if (!wait) return
+    let live = true
+    wait.then(() => live && arrived((n) => n + 1))
+    return () => (live = false)
+  }, [wait])
+  return useMemo(() => (wait ? null : geometryFor(cfg)), [cfg, wait])
 }
 
 function hash(str = '') {
@@ -120,7 +187,7 @@ function MovingPart({ index, parts, idle, phase }) {
 
 export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
   const cfg = useMemo(() => normalizeConfig(config), [config])
-  const geo = useMemo(() => geometryFor(cfg), [cfg])
+  const geo = useLook(cfg)
   const root = useRef()
   const phase = useMemo(() => (hash(phaseKey || cfg.name) % 1000) / 160, [phaseKey, cfg.name])
 
@@ -134,10 +201,12 @@ export default function Bommai({ config, idle = true, phaseKey, ...rest }) {
 
   return (
     <group {...rest}>
-      <group ref={root}>
-        <mesh geometry={geo.body} material={VOXEL_MATERIALS} castShadow receiveShadow />
-        {geo.parts.map((p, i) => p.parent < 0 && <MovingPart key={i} index={i} parts={geo.parts} idle={idle} phase={phase} />)}
-      </group>
+      {geo && (
+        <group ref={root}>
+          <mesh geometry={geo.body} material={VOXEL_MATERIALS} castShadow receiveShadow />
+          {geo.parts.map((p, i) => p.parent < 0 && <MovingPart key={i} index={i} parts={geo.parts} idle={idle} phase={phase} />)}
+        </group>
+      )}
     </group>
   )
 }

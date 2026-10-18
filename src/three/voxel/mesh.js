@@ -5,19 +5,27 @@ import { SHINY, GLOW } from './grid.js'
 // faces of the same colour are merged into larger quads (greedy meshing), and every corner gets
 // a little ambient occlusion so creases and the gaps between slabs read like a soft studio render.
 // Three material groups: 0 matte, 1 shiny, 2 glowing.
+// meshArrays does the work and returns plain typed arrays (so it can run in a worker, see
+// bommai/looks.js); geometryFrom wraps them in a BufferGeometry.
 
 const AO = [0.58, 0.74, 0.88, 1]
 const col = new THREE.Color()
 
-export function meshGrid(grid, size) {
+export const meshGrid = (grid, size) => geometryFrom(meshArrays(grid, size))
+
+export function meshArrays(grid, size) {
   const { sx, sy, sz, data, ox, oz } = grid
   const dims = [sx, sy, sz]
-  // bounds of what is filled, so the sweep stays small
+  // bounds of what is filled, so the sweep stays small (only inside the box drawn into, when the
+  // grid kept one)
+  const b = grid.bounds
+  const from = b ? b.lo : [0, 0, 0]
+  const to = b ? b.hi : [sx - 1, sy - 1, sz - 1]
   const lo = [sx, sy, sz]
   const hi = [-1, -1, -1]
-  for (let y = 0; y < sy; y++)
-    for (let z = 0; z < sz; z++)
-      for (let x = 0; x < sx; x++)
+  for (let y = from[1]; y <= to[1]; y++)
+    for (let z = from[2]; z <= to[2]; z++)
+      for (let x = from[0]; x <= to[0]; x++)
         if (data[(y * sz + z) * sx + x]) {
           if (x < lo[0]) lo[0] = x
           if (x > hi[0]) hi[0] = x
@@ -31,7 +39,7 @@ export function meshGrid(grid, size) {
     { pos: [], nor: [], col: [], idx: [] },
     { pos: [], nor: [], col: [], idx: [] },
   ]
-  if (hi[0] < 0) return toGeometry(out)
+  if (hi[0] < 0) return toArrays(out)
 
   // index strides along x, y and z, so neighbours are found without recomputing coordinates
   const stride = [1, sz * sx, sx]
@@ -113,7 +121,7 @@ export function meshGrid(grid, size) {
       }
     }
   }
-  return toGeometry(out, size, ox, oz)
+  return toArrays(out, size, ox, oz)
 
   function emit(o, d, u, v, dir, s, i0, j0, w, h, key) {
     const wordv = Math.floor(key / 256)
@@ -150,26 +158,38 @@ export function meshGrid(grid, size) {
   }
 }
 
-function toGeometry(out, size = 1, ox = 0, oz = 0) {
-  const geo = new THREE.BufferGeometry()
-  const pos = []
-  const nor = []
-  const cols = []
-  const idx = []
+function toArrays(out, size = 1, ox = 0, oz = 0) {
+  const verts = out.reduce((n, g) => n + g.pos.length, 0)
+  const pos = new Float32Array(verts)
+  const nor = new Float32Array(verts)
+  const cols = new Float32Array(verts)
+  const idx = new Uint32Array(out.reduce((n, g) => n + g.idx.length, 0))
+  const groups = []
+  let p = 0
   let start = 0
   out.forEach((g, m) => {
-    const base = pos.length / 3
-    for (let k = 0; k < g.pos.length; k += 3) pos.push((g.pos[k] - ox) * size, g.pos[k + 1] * size, (g.pos[k + 2] - oz) * size)
-    for (const v of g.nor) nor.push(v) // not push(...g.nor): big meshes overflow the call stack
-    for (const v of g.col) cols.push(v)
-    for (const t of g.idx) idx.push(base + t)
-    geo.addGroup(start, g.idx.length, m)
+    const base = p / 3
+    for (let k = 0; k < g.pos.length; k += 3, p += 3) {
+      pos[p] = (g.pos[k] - ox) * size
+      pos[p + 1] = g.pos[k + 1] * size
+      pos[p + 2] = (g.pos[k + 2] - oz) * size
+    }
+    nor.set(g.nor, base * 3)
+    cols.set(g.col, base * 3)
+    for (let k = 0; k < g.idx.length; k++) idx[start + k] = base + g.idx[k]
+    groups.push([start, g.idx.length, m])
     start += g.idx.length
   })
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3))
-  geo.setIndex(idx)
+  return { position: pos, normal: nor, color: cols, index: idx, groups }
+}
+
+export function geometryFrom({ position, normal, color, index, groups }) {
+  const geo = new THREE.BufferGeometry()
+  for (const [start, count, m] of groups) geo.addGroup(start, count, m)
+  geo.setAttribute('position', new THREE.BufferAttribute(position, 3))
+  geo.setAttribute('normal', new THREE.BufferAttribute(normal, 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(color, 3))
+  geo.setIndex(new THREE.BufferAttribute(index, 1))
   geo.computeBoundingBox()
   geo.computeBoundingSphere()
   return geo
