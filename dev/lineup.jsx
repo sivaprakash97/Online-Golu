@@ -63,7 +63,7 @@ const PET_SET = [
   ...PETS.slice(1).map((pet, i) => ({ ...look, name: pet.label, pet: pet.id, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: 'standing' })),
   ...PETS.slice(1).map((pet, i) => ({ ...look, name: pet.label + ' +', pet: pet.id, headwear: ['cap', 'beanie', 'fedora', 'headphones', 'none', 'kufi', 'hijab', 'cap'][i % 8], accessory: ['plant', 'guitar', 'handbag', 'easel'][i % 4], hair: ['top-bun', 'spiky', 'puffs', 'curly'][i % 4], pose: ['standing', 'dancing', 'sitting', 'namaste'][i % 4] })),
   // the pets that perch, on top of each kind of headwear
-  ...['beanie', 'fedora', 'headphones', 'hijab', 'cap', 'kufi', 'none', 'cap'].map((headwear, i) => ({ ...look, name: headwear, pet: ['bunny', 'parrot', 'pikachu', 'duck'][i % 4], headwear, outfit: headwear === 'hijab' ? 'abaya' : 'kurta', outfit_color: 'peacock', hair: ['top-bun', 'curly', 'puffs', 'spiky'][i % 4], pose: ['standing', 'dancing', 'namaste', 'cross-legged'][i % 4] })),
+  ...['beanie', 'fedora', 'headphones', 'hijab', 'cap', 'kufi', 'none', 'cap'].map((headwear, i) => ({ ...look, name: headwear, pet: ['bunny', 'parrot', 'duck'][i % 3], headwear, outfit: headwear === 'hijab' ? 'abaya' : 'kurta', outfit_color: 'peacock', hair: ['top-bun', 'curly', 'puffs', 'spiky'][i % 4], pose: ['standing', 'dancing', 'namaste', 'cross-legged'][i % 4] })),
 ]
 const SETS = { pets: PET_SET, modest: MODEST, pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS
