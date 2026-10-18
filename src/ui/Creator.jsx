@@ -78,11 +78,11 @@ function Section({ title, children, aside }) {
   )
 }
 
-// Accessories has a lot in it, so it is split into tabs: what's worn, what's carried, and pets
+// Accessories has a lot in it, so it is split into tabs: what's worn, what's carried, and companions (the pets)
 const ACCESSORY_TABS = [
   { id: 'headwear', label: 'Headwear' },
   { id: 'carry', label: 'Carriable' },
-  { id: 'pets', label: 'Pets' },
+  { id: 'pets', label: 'Companions' },
 ]
 
 function Accessories({ config, set, setHeadwear, grid }) {
@@ -110,9 +110,10 @@ function Accessories({ config, set, setHeadwear, grid }) {
       {tab === 'pets' && (
         <div className="sub-panel">
           <p className="hint">Next to you on the floor, up on your head, or floating over it.</p>
+          {/* what's carried is left out of the tiles: set down on the floor, it would crowd the pet or hide it */}
           <div className="tile-grid">
             {PETS.map((o) => (
-              <Tile key={o.id} label={o.label} frame={o.at === 'floor' ? 'beside' : o.at ? 'crown' : 'full'} config={{ ...config, pet: o.id }} selected={config.pet === o.id} onClick={() => set({ pet: o.id })} />
+              <Tile key={o.id} label={o.label} frame={o.at === 'floor' ? 'beside' : o.at ? 'crown' : 'full'} config={{ ...config, accessory: 'none', pet: o.id }} selected={config.pet === o.id} onClick={() => set({ pet: o.id })} />
             ))}
           </div>
         </div>
