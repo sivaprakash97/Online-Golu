@@ -763,6 +763,47 @@ input:focus-visible {
   letter-spacing: 0.04em;
 }
 
+/* the tabs inside Accessories: worn, carried, pets */
+.sub-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px;
+  flex-wrap: wrap;
+}
+.sub-tab {
+  padding: 9px 18px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  transition: background 0.15s, color 0.15s;
+}
+.sub-tab:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+}
+.sub-tab.is-on {
+  color: #2a1208;
+  background: var(--turmeric);
+  border-color: transparent;
+  box-shadow: 0 3px 0 var(--turmeric-deep);
+}
+.sub-panel .hint {
+  margin: 0 0 10px;
+}
+.is-portrait .sub-tabs {
+  margin: 4px 0 10px;
+  flex-wrap: nowrap;
+}
+.is-portrait .sub-tab {
+  padding: 8px 14px;
+  font-size: 11px;
+}
+
 .opt-panel {
   grid-area: opts;
   overflow-y: auto;

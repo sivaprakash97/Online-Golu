@@ -2,6 +2,7 @@ import { LOOKUP, HATS, HIJAB, pairColor } from '../../data/options.js'
 import { VoxelGrid, shiny } from '../voxel/grid.js'
 import { hairOn, faceOn } from './head.js'
 import { itemAt } from './items.js'
+import { petAt } from './pets.js'
 import { PED, HIP, SHOULDER, HEAD0, HEAD1, HW, HD, shade, mod } from './dims.js'
 
 // A Bommai, voxel by voxel, in a chibi collectible style: a big softly rounded head (36 of ~88
@@ -545,9 +546,20 @@ export function carryMode(acc, pose) {
   return acc.hold
 }
 
+// A pet that sits next to the pedestal takes the doll's left, where an item set down on the floor
+// goes, so when both are there the pet moves over to the right.
+const FLOOR_X = 34
+// Whether exactly one thing stands beside the pedestal, so the doll steps aside to make room for it
+// (the Golu layout shifts it); with something on both sides it stays centred.
+export function standsOffCentre(c) {
+  const item = carryMode(LOOKUP.accessory[c.accessory], c.pose) === 'ground'
+  return item !== (LOOKUP.pet[c.pet]?.at === 'floor')
+}
+
 // Returns { body, parts }: `body` is the doll and its pedestal; each part is a piece that moves
 // on its own ({ grid, anim, pivot, side }): the waving forearm, a nodding head, cheering arms, the
-// upper body swaying on its hips, the whole dancing doll, or a cloud floating overhead.
+// upper body swaying on its hips, the whole dancing doll, or a pet (or part of one: its ears, wings
+// or hands) moving on its own.
 export function buildBommai(cfg) {
   const L = resolveLook(cfg)
   const B = BUILDS[cfg.body] || BUILDS.regular
@@ -555,6 +567,7 @@ export function buildBommai(cfg) {
   const z1 = B.td / 2
   const pose = cfg.pose
   const acc = LOOKUP.accessory[cfg.accessory]
+  const pet = LOOKUP.pet[cfg.pet]
   const mode = carryMode(acc, pose)
   const handSide = pose === 'waving' ? 1 : -1 // the doll's right hand unless it is waving with it
 
@@ -594,14 +607,16 @@ export function buildBommai(cfg) {
     strap: [0, 30, z1],
     slung: [0, 28, z1],
     tuck: [handSide > 0 ? half + 4 : -half - 4, 24, 0],
-    ground: [34, 0, 2],
+    ground: [FLOOR_X, 0, 2],
   }
   if (mode) {
     const target = mode === 'ground' ? floor : ['up', 'lean', 'tuck'].includes(mode) ? arms[handSide] : upper
     itemAt(target, acc.id, mode, anchors, { L, B, side: handSide })
   }
   // headwear is its own choice, so it goes with whatever is carried (the hijab is drawn with the head and body)
-  if (cfg.headwear !== 'none' && !L.hijab) itemAt(cfg.headwear === 'cloud' ? part('float', [0, 0, 0]) : head, cfg.headwear, 'head', anchors, { L, B })
+  if (cfg.headwear !== 'none' && !L.hijab) itemAt(head, cfg.headwear, 'head', anchors, { L, B })
+  // and so does a pet: on the floor, on top of the hair or the hat, or floating over the head
+  if (pet) petAt(pet.at === 'floor' ? floor : head, pet, mode === 'ground' ? -FLOOR_X : FLOOR_X, part)
 
   const armPose = (side) => {
     if (pose === 'namaste') return 'namaste'
@@ -620,5 +635,6 @@ export function buildBommai(cfg) {
   if (mode === 'chest' && acc.id === 'guitar') itemAt(upper, 'guitar-strap', mode, anchors, { L, B })
 
   if (pose === 'waving') arm(part('wave', [-half - reach(B) - 2.5, 41, 0.5]), L, B, -1, 'forearmUp')
-  return { body: floor, parts }
+  // a part can hang from another (a hand on an arm): `parent` is the other's grid, which becomes its index
+  return { body: floor, parts: parts.map(({ parent, ...p }) => ({ ...p, parent: parts.findIndex((q) => q.grid === parent) })) }
 }

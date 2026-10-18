@@ -10,6 +10,9 @@ const cache = new Map()
 
 const FRAMES = {
   full: { pos: [0.55, 0.68, 2.55], look: [0, 0.5, 0], rotY: -0.25 },
+  // pets: close on the top of the head, or on the floor beside the pedestal
+  crown: { pos: [0.3, 1.0, 1.55], look: [0, 0.93, 0], rotY: -0.3 },
+  beside: { pos: [0.6, 0.36, 1.35], look: [0.33, 0.2, 0], rotY: -0.3 },
   head: { pos: [0.3, 0.8, 1.3], look: [0, 0.72, 0], rotY: -0.3 },
   hair: { pos: [0.95, 0.82, 1.45], look: [0, 0.74, -0.05], rotY: -0.6 },
 }

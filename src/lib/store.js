@@ -39,10 +39,10 @@ function toPlacementError(e) {
   return e
 }
 
-// The recipe as the database stores it: the headwear goes in the accessory column
+// The recipe as the database stores it: the headwear and the pet go in the accessory column
 function toDb(config) {
-  const { headwear, ...c } = normalizeConfig(config)
-  return { ...c, accessory: packAccessory(headwear, c.accessory) }
+  const { headwear, pet, ...c } = normalizeConfig(config)
+  return { ...c, accessory: packAccessory(headwear, c.accessory, pet) }
 }
 
 function toRow(r) {

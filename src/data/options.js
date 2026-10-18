@@ -120,7 +120,6 @@ export const HEADWEAR = [
   { id: 'kufi', label: 'Kufi' },
   HIJAB,
   { id: 'headphones', label: 'Headphones' },
-  { id: 'cloud', label: 'Little cloud' },
 ]
 
 // What's carried. hold: hand (right hand), both (in front, both hands), side (carried at the side),
@@ -142,9 +141,23 @@ export const ACCESSORIES = [
   { id: 'backpack', label: 'Backpack', hold: 'back' },
   { id: 'easel', label: 'Easel', hold: 'ground' },
   { id: 'plant', label: 'Plant', hold: 'ground' },
-  { id: 'cat', label: 'Cat', hold: 'ground' },
-  { id: 'dog', label: 'Dog', hold: 'ground' },
   { id: 'handbag', label: 'Handbag', hold: 'ground' },
+]
+
+// Pets are a choice of their own, apart from what's carried, so a Bommai can hold a guitar and have
+// a cat. at: 'floor' (sits next to the pedestal), 'head' (perched on top of whatever is up there:
+// hair, a hat) or 'float' (bobs in the air above the head). Keep the ids to 7 letters or fewer: the
+// database packs headwear, what's carried and the pet into one 32-character column (see packAccessory).
+export const PETS = [
+  { id: 'none', label: 'No pet', at: null },
+  { id: 'cat', label: 'Cat', at: 'floor' },
+  { id: 'dog', label: 'Dog', at: 'floor' },
+  { id: 'rocky', label: 'Rocky', at: 'floor' }, // the Eridian from Project Hail Mary
+  { id: 'grogu', label: 'Baby Yoda', at: 'floor' },
+  { id: 'bunny', label: 'Bunny', at: 'head' },
+  { id: 'parrot', label: 'Parrot', at: 'head' },
+  { id: 'duck', label: 'Rubber duck', at: 'head' },
+  { id: 'cloud', label: 'Little cloud', at: 'float' }, // was headwear; old rows that wore it read as this
 ]
 
 export const POSES = [
@@ -171,6 +184,7 @@ export const DEFAULT_CONFIG = {
   face_extras: ['bindi'],
   headwear: 'none',
   accessory: 'filter-coffee',
+  pet: 'none',
   pose: 'standing',
 }
 
@@ -200,6 +214,7 @@ export function randomConfig(name = '') {
     face_extras,
     headwear: hijab ? HIJAB.id : Math.random() < 0.25 ? pick(hats).id : 'none',
     accessory: pick(ACCESSORIES.slice(1)).id,
+    pet: Math.random() < 0.3 ? pick(PETS.slice(1)).id : 'none',
     pose: pick(POSES).id,
   }
 }
@@ -215,6 +230,7 @@ export const LOOKUP = {
   eyes: byId(EYES),
   headwear: byId(HEADWEAR),
   accessory: byId(ACCESSORIES),
+  pet: byId(PETS),
   pose: byId(POSES),
 }
 
@@ -222,22 +238,30 @@ export const LOOKUP = {
 export const pairColor = (colorId) => LOOKUP.outfitColor[LOOKUP.outfitColor[colorId]?.pair]?.color
 export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit[outfitId]?.top)
 
-// The database has one accessory column, so the headwear and what's carried share it: 'cap+guitar',
-// or just 'cap' or 'guitar'. Rows from before they were split hold a single id, which still reads
-// correctly.
-export const packAccessory = (headwear, accessory) => [headwear, accessory].filter((v) => v && v !== 'none').join('+') || 'none'
+// The database has one accessory column, so the headwear, what's carried and the pet share it:
+// 'cap+guitar+cat', or any of them alone. Each id belongs to exactly one table, so they can be told
+// apart wherever they sit. Rows from before pets existed hold 'cat', 'dog' or the cloud, which now
+// read as the pet; rows from before the headwear was split hold a single id.
+export const packAccessory = (headwear, accessory, pet) => [headwear, accessory, pet].filter((v) => v && v !== 'none').join('+') || 'none'
 function unpackAccessory(v) {
-  const [a, b] = String(v || '').split('+')
-  if (b !== undefined) return [a, b]
-  return LOOKUP.headwear[a] && a !== 'none' ? [a, 'none'] : ['none', a]
+  const out = ['none', 'none', 'none'] // headwear, carried, pet
+  for (const id of String(v || '').split('+')) {
+    if (LOOKUP.pet[id] && id !== 'none') out[2] = id
+    else if (LOOKUP.headwear[id] && id !== 'none') out[0] = id
+    else out[1] = id
+  }
+  return out
 }
 
 // Unknown ids (e.g. an option removed later) fall back to defaults so old rows still render.
 export function normalizeConfig(c = {}) {
   const ok = (table, v, d) => (v && table[v] ? v : d)
   const D = DEFAULT_CONFIG
-  // headwear comes apart from the accessory column when read from the database (see packAccessory)
-  const [head, held] = c.headwear === undefined ? unpackAccessory(c.accessory) : [c.headwear, c.accessory]
+  // headwear and the pet come apart from the accessory column when read from the database (see packAccessory)
+  const [head, held, packed] = c.headwear === undefined ? unpackAccessory(c.accessory) : [c.headwear, c.accessory, 'none']
+  const kept = c.pet && c.pet !== 'none' ? c.pet : packed
+  // a cat or dog saved as the carried item, or the cloud saved as headwear, is the pet now
+  const pet = [kept, held, head].find((id) => LOOKUP.pet[id] && id !== 'none') || 'none'
   return {
     name: (c.name || '').slice(0, 24),
     body: ok(LOOKUP.body, c.body, D.body),
@@ -250,6 +274,7 @@ export function normalizeConfig(c = {}) {
     face_extras: Array.isArray(c.face_extras) ? c.face_extras.filter((e) => FACE_EXTRAS.some((f) => f.id === e)) : [],
     headwear: ok(LOOKUP.headwear, head, 'none'),
     accessory: ok(LOOKUP.accessory, held, 'none'),
+    pet: ok(LOOKUP.pet, pet, 'none'),
     pose: ok(LOOKUP.pose, c.pose, D.pose),
   }
 }

@@ -17,7 +17,7 @@ export const shiny = (c) => word(c) | SHINY
 export const glow = (c) => word(c) | GLOW
 
 export class VoxelGrid {
-  constructor(sx = 112, sy = 128, sz = 72) {
+  constructor(sx = 112, sy = 144, sz = 72) {
     this.sx = sx
     this.sy = sy
     this.sz = sz

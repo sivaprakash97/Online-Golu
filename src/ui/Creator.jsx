@@ -20,6 +20,7 @@ import {
   FACE_EXTRAS,
   HEADWEAR,
   ACCESSORIES,
+  PETS,
   POSES,
   randomConfig,
   pairColor,
@@ -74,6 +75,49 @@ function Section({ title, children, aside }) {
       </header>
       {children}
     </section>
+  )
+}
+
+// Accessories has a lot in it, so it is split into tabs: what's worn, what's carried, and pets
+const ACCESSORY_TABS = [
+  { id: 'headwear', label: 'Headwear' },
+  { id: 'carry', label: 'Carriable' },
+  { id: 'pets', label: 'Pets' },
+]
+
+function Accessories({ config, set, setHeadwear, grid }) {
+  const [tab, setTab] = useState('headwear')
+  return (
+    <>
+      <div className="sub-tabs" role="tablist" aria-label="Accessories">
+        {ACCESSORY_TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`sub-tab ${tab === t.id ? 'is-on' : ''}`}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={(e) => {
+              setTab(t.id)
+              e.currentTarget.closest('.opt-panel')?.scrollTo({ top: 0 })
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === 'headwear' && <div className="sub-panel">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</div>}
+      {tab === 'carry' && <div className="sub-panel">{grid(ACCESSORIES, 'accessory', 'full')}</div>}
+      {tab === 'pets' && (
+        <div className="sub-panel">
+          <p className="hint">Next to you on the floor, up on your head, or floating over it.</p>
+          <div className="tile-grid">
+            {PETS.map((o) => (
+              <Tile key={o.id} label={o.label} frame={o.at === 'floor' ? 'beside' : o.at ? 'crown' : 'full'} config={{ ...config, pet: o.id }} selected={config.pet === o.id} onClick={() => set({ pet: o.id })} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -160,12 +204,7 @@ function Options({ cat, config, set }) {
         </>
       )
     case 'accessory':
-      return (
-        <>
-          <Section title="Headwear">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</Section>
-          <Section title="Carriable">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
-        </>
-      )
+      return <Accessories config={config} set={set} setHeadwear={setHeadwear} grid={grid} />
     case 'pose':
       return <Section title="Pose">{grid(POSES, 'pose', 'full')}</Section>
     default:
