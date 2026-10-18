@@ -307,7 +307,7 @@ function PlacedBommai({ b, target, spawn, isMine, showTag, onPick, onGrab, onLan
       } else return
     }
     if (s.phase === 'pop') {
-      const t = Math.min(1, (now - s.start) / 0.55)
+      const t = Math.min(1, (now - s.start) / 0.4)
       const e = 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2) // back-out
       g.scale.setScalar(Math.max(0.001, e))
       if (t >= 1) (s.phase = 'idle'), g.scale.setScalar(1)
