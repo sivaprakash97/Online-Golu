@@ -4,6 +4,7 @@ import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
 import GoluArrows from './ui/GoluNav.jsx'
+import SnapshotSheet from './ui/SnapshotSheet.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options.js'
 import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isLive, canMoveBommais, goluCount, SANDBOX } from './lib/store.js'
@@ -75,6 +76,7 @@ export default function App() {
   const [celebrate, setCelebrate] = useState(null)
   const [toast, setToast] = useState(null)
   const [justPlaced, setJustPlaced] = useState(null)
+  const [snapOpen, setSnapOpen] = useState(false) // the photo booth
   const shared = useRef(new URLSearchParams(location.search).get('b'))
   // The Golus on the carousel and which one faces you. A turn is { golu, dir, n }: dir is the way the
   // stage turns (+1 brings the next Golu on the right round, -1 the one on the left, 0 the shorter way).
@@ -125,6 +127,10 @@ export default function App() {
   const roomy = free.findIndex((n) => n > 0) + 1 // the first Golu with a free spot (0: none)
   // one Bommai per visitor
   const hasMine = myIds.some((i) => bommais.some((b) => b.id === i))
+  // your Bommai (the photo booth takes its picture) and where it joined: Bommais load in the order
+  // they joined and new ones are added to the end
+  const myRow = bommais.find((b) => b.id === myIds.filter((i) => bommais.some((x) => x.id === i)).pop())
+  const myNumber = myRow ? bommais.indexOf(myRow) + 1 : 0
 
   const startCreate = () => {
     setFocusId(null)
@@ -193,6 +199,12 @@ export default function App() {
     const res = await share(SANDBOX ? null : id, justPlaced?.name)
     if (res === 'copied') showToast('Link copied. Send it to a friend!')
     else if (res === 'failed') showToast('Could not share from this browser.')
+  }
+
+  const openBooth = () => {
+    setFocusId(null)
+    setTagId(null)
+    setSnapOpen(true)
   }
 
   const findMine = () => {
@@ -338,7 +350,7 @@ export default function App() {
               if (b && myIds.includes(b.id)) setFocusId(b.id)
             }}
             celebrate={celebrate}
-            paused={mode === 'create' || mode === 'edit'}
+            paused={mode === 'create' || mode === 'edit' || snapOpen}
             view={view}
             swipeToTurn={touch}
           />
@@ -385,7 +397,16 @@ export default function App() {
               </span>
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
-            <div className="view-controls" role="group" aria-label="Music and view">
+            <div className={`view-controls${myRow ? ' has-photo' : ''}`} role="group" aria-label="Music and view">
+              {myRow && (
+                <button className="photo-open" onClick={openBooth} aria-label="Take a photo of your Bommai" title="Take a photo of your Bommai">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 8h3l2-2.5h6L17 8h3v11H4z" />
+                    <circle cx="12" cy="13.5" r="3.5" />
+                  </svg>
+                  <span>Photo</span>
+                </button>
+              )}
               <SoundToggle />
               <button className="view-reset" onClick={resetView} aria-label="Reset view" title="Reset view">
                 ⟲ <span>Reset view</span>
@@ -444,7 +465,12 @@ export default function App() {
               </p>
               <Counter n={count} live={live} />
               <div className="celebrate-actions">
-                <button className="btn-primary" onClick={shareMine}>
+                {myRow && (
+                  <button className="btn-primary" onClick={openBooth}>
+                    Take a photo <span aria-hidden>📸</span>
+                  </button>
+                )}
+                <button className={myRow ? 'btn-secondary' : 'btn-primary'} onClick={shareMine}>
                   Share my Bommai
                 </button>
                 <button className="btn-secondary" onClick={() => (setMode('home'), findMine())}>
@@ -459,6 +485,10 @@ export default function App() {
           <div className="view-controls" role="group" aria-label="Music">
             <SoundToggle />
           </div>
+        )}
+
+        {snapOpen && myRow && (
+          <SnapshotSheet bommai={myRow} number={myNumber} id={SANDBOX ? null : myRow.id} onClose={() => setSnapOpen(false)} onToast={showToast} />
         )}
 
         {toast && <div className="toast">{toast}</div>}

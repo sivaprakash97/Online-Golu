@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import Bommai from './bommai/Bommai.jsx'
-import SoftEnv from './SoftEnv.jsx'
+import StudioLights from './StudioLights.jsx'
 
 // Renders option tiles as real little 3D renders of the Bommai, one frame per tile, on a
 // single hidden canvas. Results are cached by (framing + config).
@@ -71,10 +71,7 @@ export function ThumbnailProvider({ children }) {
           camera={{ fov: 30, near: 0.05, far: 20 }}
           frameloop={queue.length ? 'always' : 'never'}
         >
-          <hemisphereLight args={['#fff2dc', '#8a4a30', 1.1]} />
-          <directionalLight position={[-2, 4, 4]} intensity={2.1} color="#ffe6c4" />
-          <directionalLight position={[3, 1, 2]} intensity={0.5} />
-          <SoftEnv intensity={0.25} />
+          <StudioLights />
           <Worker job={queue[0]} onDone={done} />
         </Canvas>
       </div>
