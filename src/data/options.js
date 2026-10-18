@@ -156,6 +156,7 @@ export const PETS = [
   { id: 'grogu', label: 'Baby Yoda', at: 'floor' },
   { id: 'bunny', label: 'Bunny', at: 'head' },
   { id: 'parrot', label: 'Parrot', at: 'head' },
+  { id: 'pikachu', label: 'Pikachu', at: 'head' },
   { id: 'duck', label: 'Rubber duck', at: 'head' },
   { id: 'cloud', label: 'Little cloud', at: 'float' }, // was headwear; old rows that wore it read as this
 ]
