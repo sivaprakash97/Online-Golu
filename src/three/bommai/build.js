@@ -558,7 +558,8 @@ export function standsOffCentre(c) {
 
 // Returns { body, parts }: `body` is the doll and its pedestal; each part is a piece that moves
 // on its own ({ grid, anim, pivot, side }): the waving forearm, a nodding head, cheering arms, the
-// upper body swaying on its hips, the whole dancing doll, or a cloud floating overhead.
+// upper body swaying on its hips, the whole dancing doll, or a pet (or part of one: its ears, wings
+// or hands) moving on its own.
 export function buildBommai(cfg) {
   const L = resolveLook(cfg)
   const B = BUILDS[cfg.body] || BUILDS.regular
@@ -615,9 +616,7 @@ export function buildBommai(cfg) {
   // headwear is its own choice, so it goes with whatever is carried (the hijab is drawn with the head and body)
   if (cfg.headwear !== 'none' && !L.hijab) itemAt(head, cfg.headwear, 'head', anchors, { L, B })
   // and so does a pet: on the floor, on top of the hair or the hat, or floating over the head
-  if (pet?.at === 'head') petAt(head, pet)
-  if (pet?.at === 'float') petAt(part('float', [0, 0, 0]), pet)
-  if (pet?.at === 'floor') petAt(floor, pet, mode === 'ground' ? -FLOOR_X : FLOOR_X)
+  if (pet) petAt(pet.at === 'floor' ? floor : head, pet, mode === 'ground' ? -FLOOR_X : FLOOR_X, part)
 
   const armPose = (side) => {
     if (pose === 'namaste') return 'namaste'
@@ -636,5 +635,6 @@ export function buildBommai(cfg) {
   if (mode === 'chest' && acc.id === 'guitar') itemAt(upper, 'guitar-strap', mode, anchors, { L, B })
 
   if (pose === 'waving') arm(part('wave', [-half - reach(B) - 2.5, 41, 0.5]), L, B, -1, 'forearmUp')
-  return { body: floor, parts }
+  // a part can hang from another (a hand on an arm): `parent` is the other's grid, which becomes its index
+  return { body: floor, parts: parts.map(({ parent, ...p }) => ({ ...p, parent: parts.findIndex((q) => q.grid === parent) })) }
 }
