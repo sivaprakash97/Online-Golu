@@ -1,7 +1,8 @@
 import { centreOut, spotsOnStep } from './options.js'
 
-// Fictional demo Bommais so the Golu never loads empty. The same rows are inserted
-// into Supabase by supabase/seed.sql (generated from this file: `npm run seed:sql`).
+// Demo Bommais so the Golu never loads empty: fictional ones on Golu 1, and friends of the Golu on
+// Golu 2. The same rows are inserted into Supabase by supabase/seed.sql (generated from this file:
+// `npm run seed:sql`).
 export const SEED_BOMMAIS = [
   { name: 'Meera', step: 4, body: 'slim', skin_tone: 'honey', hair: 'long-wavy', hair_color: 'black', outfit: 'kurta', outfit_color: 'peacock', face: 'happy', face_extras: ['glasses'], accessory: 'laptop', pose: 'holding' },
   { name: 'Arjun', step: 3, body: 'regular', skin_tone: 'brown', hair: 'spiky', hair_color: 'black', outfit: 'hoodie', outfit_color: 'charcoal', face: 'round', face_extras: [], accessory: 'controller', pose: 'holding' },
@@ -22,11 +23,19 @@ export const SEED_BOMMAIS = [
   { name: 'Tara', step: 5, body: 'slim', skin_tone: 'brown', hair: 'top-bun', hair_color: 'chestnut', outfit: 'hoodie', outfit_color: 'parrot', face: 'dots', face_extras: ['shades'], accessory: 'plant', pose: 'sitting' },
   { name: 'Gopal', step: 4, body: 'round', skin_tone: 'deep-brown', hair: 'curly', hair_color: 'silver', outfit: 'tee-jeans', outfit_color: 'peacock', face: 'sleepy', face_extras: ['beard', 'glasses'], accessory: 'book', pose: 'sitting' },
   { name: 'Zoya', step: 6, body: 'regular', skin_tone: 'honey', hair: 'ponytail', hair_color: 'black', outfit: 'tee-jeans', outfit_color: 'rose', face: 'sparkle', face_extras: ['blush'], accessory: 'camera', pose: 'holding' },
+  { name: 'MAMDANI', golu: 2, step: 5, body: 'regular', skin_tone: 'medium-brown', hair: 'short-crop', hair_color: 'black', outfit: 'shirt-pants', outfit_color: 'charcoal', face: 'happy', face_extras: ['beard', 'mustache'], accessory: 'cat', pose: 'waving' },
+  { name: 'Kathrika', golu: 2, step: 4, body: 'slim', skin_tone: 'wheat', hair: 'braid', hair_color: 'black', outfit: 'silk-saree', outfit_color: 'lavender', face: 'sparkle', face_extras: ['bindi', 'nosering'], accessory: 'flowers', pose: 'standing' },
+  { name: 'vadivu', golu: 2, step: 4, body: 'regular', skin_tone: 'tan', hair: 'low-bun', hair_color: 'black', outfit: 'salwar', outfit_color: 'peacock', face: 'happy', face_extras: ['bindi', 'blush'], accessory: 'handbag', pose: 'hips' },
+  { name: 'Chocka', golu: 2, step: 2, body: 'round', skin_tone: 'brown', hair: 'curly', hair_color: 'black', outfit: 'tee-jeans', outfit_color: 'maroon', face: 'sparkle', face_extras: [], accessory: 'ice-cream+dog', pose: 'holding' },
+  { name: 'ash', golu: 2, step: 6, body: 'slim', skin_tone: 'wheat', hair: 'spiky', hair_color: 'black', outfit: 'hoodie', outfit_color: 'lavender', face: 'wink', face_extras: ['shades'], accessory: 'headphones+skateboard', pose: 'standing' },
+  { name: 'sri', golu: 2, step: 6, body: 'regular', skin_tone: 'medium-brown', hair: 'side-part', hair_color: 'black', outfit: 'kurta', outfit_color: 'turmeric', face: 'round', face_extras: ['glasses', 'namam'], accessory: 'book', pose: 'sitting' },
+  { name: 'Sharan', golu: 2, step: 5, body: 'regular', skin_tone: 'tan', hair: 'short-crop', hair_color: 'espresso', outfit: 'shirt-pants', outfit_color: 'sky', face: 'wink', face_extras: ['mustache'], accessory: 'cap+cricket-bat', pose: 'standing' },
 ].map((b, i, all) => ({
   ...b,
   id: `seed-${i + 1}`,
+  golu: b.golu || 1,
   // spots fill centre-out per step, in join order (same order as the slots migration)
-  slot: centreOut(spotsOnStep(b.step))[all.slice(0, i).filter((o) => o.step === b.step).length],
+  slot: centreOut(spotsOnStep(b.step))[all.slice(0, i).filter((o) => (o.golu || 1) === (b.golu || 1) && o.step === b.step).length],
   // spread fictional join times over the past few days
   created_at: new Date(Date.UTC(2026, 9, 10, 9) + i * 3.7 * 3600e3).toISOString(),
   seeded: true,
