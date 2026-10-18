@@ -90,7 +90,8 @@ export default function App() {
       setBommais(rows)
       setGolus(goluCount())
       const t0 = 0.25
-      setSpawns(Object.fromEntries(rows.map((r, i) => [r.id, { type: 'pop', delay: t0 + i * 0.07 }])))
+      // Only the first Golu fills up on load; the others are already full when you turn to them.
+      setSpawns(Object.fromEntries(rows.filter((r) => r.golu === 1).map((r, i) => [r.id, { type: 'pop', delay: t0 + i * 0.07 }])))
       unsub = subscribeBommais((row) => {
         // a new Bommai drops in; a moved one glides to its new spot; an edited one changes its look
         setBommais((list) => {
