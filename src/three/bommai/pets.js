@@ -2,18 +2,18 @@ import { shade, mod, hash3, HEAD0, HEAD1 } from './dims.js'
 import { at } from './items.js'
 
 // Pets as little voxel models. Each is drawn relative to where it stands (x = 0, z = 0 is the middle
-// of its feet, y = 0 the floor it stands on). A pet that sits next to the pedestal is
+// of its feet, y = 0 the floor it stands on), facing +z. A pet that sits next to the pedestal is
 // drawn on the floor; one on the head is drawn on top of whatever is up there (see petAt).
-// Most face the viewer (+z); the raptor is drawn from the side.
 
 const DARK = '#1c1c22'
 const WHITE = '#f8f5ee'
 
-// a straight run of t×t voxels from a to b (a leg, a tail, a feather)
+// a straight run of t×t voxels from a to b (a limb), the line running down the middle of it
 function strut(p, [x0, y0, z0], [x1, y1, z1], t, c) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0), 1)
+  const h = t >> 1
   for (let i = 0; i <= n; i++) {
-    const [x, y, z] = [x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, z0 + ((z1 - z0) * i) / n].map(Math.round)
+    const [x, y, z] = [x0 + ((x1 - x0) * i) / n - h, y0 + ((y1 - y0) * i) / n - h, z0 + ((z1 - z0) * i) / n - h].map(Math.round)
     p.box(x, x + t, y, y + t, z, z + t, c)
   }
 }
@@ -43,26 +43,34 @@ const FLOOR_PETS = {
     for (const s of [-1, 1]) p.rounded(s > 0 ? 4 : -6, s > 0 ? 6 : -4, 8, 16, -1, 3, 1, '#8a6440') // floppy ears
     p.rounded(-1, 1, 3, 9, -8, -5, 0.8, c) // tail
   },
-  // Rocky, the Eridian from Project Hail Mary: a rocky carapace on five jointed legs, the two at the
-  // front raised like hands, and no eyes
+  // Rocky, the Eridian from Project Hail Mary, with his hands up: a cracked terracotta carapace with
+  // a few pits on it, no eyes, two arms raised with the two-pronged hands spread (jazz hands!) and
+  // three thick legs, the stone patched with green-blue verdigris
   rocky(p) {
-    const rock = (x, y, z) => {
-      const h = hash3(x, y, z) % 100
-      return h < 12 ? '#4e3f35' : h < 22 ? '#927c68' : h < 26 ? '#c9a45a' : '#6f5a4a'
+    const stone = (x, y, z) => {
+      const h = hash3(x >> 1, y >> 1, z >> 1) % 100
+      return h < 8 ? '#97603c' : h < 24 ? '#cc9060' : '#b8794c'
     }
-    p.ellipsoid(0, 7.5, 0, 7.5, 5.5, 7, rock) // the carapace
-    p.ellipsoid(0, 10.5, -0.5, 4.5, 2.4, 4, (x, y, z) => (hash3(x, y, z) % 5 ? '#5d4a3d' : '#927c68')) // a ridge along the top
-    // five legs, the corners of a pentagon with one corner at the back
-    for (const [k, a] of [-90, -18, -162, 54, 126].entries()) {
-      const [dx, dz] = [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)]
-      const out = (r, y) => [Math.round(dx * r) - 1, y, Math.round(dz * r) - 1]
-      const raised = k > 2
-      const leg = (x, y, z) => (hash3(x, y, z) % 6 ? '#5d4a3d' : '#927c68')
-      strut(p, out(5, 6), out(raised ? 8 : 9, raised ? 12 : 10), 3, leg)
-      strut(p, out(raised ? 8 : 9, raised ? 12 : 10), out(raised ? 11 : 12, raised ? 9 : 0), 2, leg)
-      const [fx, fy, fz] = out(raised ? 11 : 12, raised ? 9 : 0)
-      p.box(fx - 1, fx + 3, fy, fy + 2, fz - 1, fz + 3, '#3f3229') // the foot, or the hand
+    const limb = (x, y, z) => (hash3(x >> 1, y >> 1, z >> 1) % 100 < 24 ? '#6fb8a0' : stone(x, y, z))
+    // the carapace: a tall rounded block, paler underneath, with cracks running across it
+    p.rounded(-8, 8, 6, 21, -6, 7, 4, (x, y, z) => (y < 9 ? '#b5a89a' : mod(x * 3 + y * 2 + z, 13) === 0 ? '#6a4228' : stone(x, y, z)))
+    for (const [x, y] of [[4, 17], [5, 15], [4, 13], [5, 11]]) p.set(x, y, 6, '#6b4a34') // a column of pits
+    for (const s of [-1, 1]) {
+      // an arm: out from the shoulder to a squared-off elbow, then up to a hand with two prongs
+      strut(p, [s * 7, 16, 0], [s * 11, 17, 1], 4, limb)
+      strut(p, [s * 11, 17, 1], [s * 12, 24, 1], 4, limb)
+      strut(p, [s * 12, 24, 1], [s * 10, 30, 1], 2, limb)
+      strut(p, [s * 12, 24, 1], [s * 15, 30, 1], 2, limb)
+      // an outer leg: out from the hip, then straight down to a blocky foot
+      strut(p, [s * 6, 9, -1], [s * 11, 8, -1], 4, limb)
+      strut(p, [s * 11, 8, -1], [s * 11, 2, -1], 4, limb)
+      p.box(s * 11 - 3, s * 11 + 3, 0, 3, -4, 2, '#97603c')
     }
+    p.box(-12, -8, 14, 15, -1, 3, '#6b5a4a') // a woven band on one arm
+    // the front leg, down to a foot out in front
+    strut(p, [0, 8, 4], [0, 6, 9], 4, limb)
+    strut(p, [0, 6, 9], [0, 2, 10], 4, limb)
+    p.box(-3, 3, 0, 3, 7, 13, '#97603c')
   },
   // Grogu, in his robe, sitting with big ears and bigger eyes
   grogu(p) {
@@ -84,37 +92,6 @@ const FLOOR_PETS = {
     }
     p.set(0, 13, 5, shade(skin, -0.1)) // nose
     p.box(-1, 1, 11, 12, 5, 6, shade(skin, -0.2)) // mouth
-  },
-  // a velociraptor in miniature, seen from the side (drawn facing +x; see `profile`): up on its toes,
-  // a long stiff tail behind and a sickle claw raised
-  raptor(p) {
-    const hide = (x, y, z) => (y > 12 && mod(x, 4) < 2 ? '#3f6a2d' : y < 9 ? '#a9c47a' : '#6f9a4a')
-    const belly = '#d8d29a'
-    const dark = '#5b8a3d'
-    for (const z of [-5, 2]) {
-      p.ellipsoid(-3, 7.5, z + 1.5, 3.6, 4.4, 2.4, hide) // thigh
-      strut(p, [-4, 6, z], [-6, 1, z], 3, dark) // the shin, angled back to the ankle
-      p.box(-7, 0, 0, 1, z, z + 3, dark) // foot, toes forward
-      p.box(-3, 1, 0, 1, z + 1, z + 2, dark)
-      p.box(1, 3, 0, 1, z, z + 3, '#f0e6c0') // toe claws
-      p.box(-1, 1, 2, 4, z + 1, z + 2, '#f0e6c0') // the raised sickle claw
-    }
-    p.ellipsoid(-4, 10.5, 0, 6.5, 4.4, 4.2, hide) // body
-    p.ellipsoid(1.5, 9.8, 0, 3.5, 3, 3.4, belly)
-    p.ellipsoid(2.5, 14.5, 0, 2.6, 3.8, 2.6, hide) // neck, curving up and forward
-    p.ellipsoid(5, 18, 0, 4, 3, 3.2, hide) // head
-    p.rounded(6, 13, 16, 19, -2, 2, 1, '#7ba656') // snout
-    p.box(6, 13, 15, 16, -2, 2, belly) // jaw
-    for (const x of [8, 11]) for (const z of [-2, 1]) p.set(x, 15, z, WHITE) // teeth
-    for (const z of [-2, 1]) (p.box(5, 7, 18, 20, z, z + 1, '#f2b632'), p.set(6, 19, z, DARK)) // amber eyes
-    p.set(12, 18, -1, DARK) // nostrils
-    p.set(12, 18, 0, DARK)
-    for (const z of [-5, 4]) p.box(3, 7, 9, 10, z, z + 1, dark) // tiny arms
-    for (const z of [-5, 4]) p.box(6, 8, 8, 9, z, z + 1, '#f0e6c0')
-    for (let x = -9; x > -26; x--) {
-      const r = Math.max(0.7, 3.2 - (-9 - x) * 0.15) // the tail thins out and lifts a little
-      p.ellipsoid(x + 0.5, 11 + (-9 - x) * 0.18, 0, 1, r, r, hide)
-    }
   },
 }
 
@@ -183,14 +160,42 @@ const HEAD_PETS = {
     p.box(-1, 3, 7, 10, -8, -6, yellow)
     p.box(2, 8, 10, 14, -8, -6, yellow)
   },
+  // a rubber duck, sitting on the head
+  duck(p) {
+    const yellow = '#f7cf2e'
+    p.ellipsoid(0, 4, -1, 6, 4.5, 6, yellow) // body
+    p.ellipsoid(0, 7.5, -6.5, 2.2, 2.6, 2.2, yellow) // tail, turned up
+    p.ellipsoid(0, 11, 2, 4.2, 4, 4, yellow) // head
+    for (const s of [-1, 1]) p.ellipsoid(s * 5.6, 4.5, -1, 1.2, 3, 3.6, '#e9b81c') // wings
+    p.rounded(-2.5, 2.5, 9, 12, 5, 10, 1, '#f08a24') // flat orange beak
+    p.box(-2, 2, 9, 10, 6, 10, '#d9741a')
+    for (const x of [-3, 2]) p.box(x, x + 1, 12, 14, 5, 6, DARK) // eyes
+    p.set(-3, 13, 6, WHITE)
+    p.set(2, 13, 6, WHITE)
+    p.box(-2, 2, 15, 16, 1, 3, shade(yellow, 0.1)) // a little curl of fluff on top
+  },
+  // a sleepy little cloud bobbing over the head (drawn in its own grid, so it can bob)
+  cloud(p) {
+    const col = (x, y) => (y < -6 ? '#dfe7f2' : '#fbfcfe')
+    for (const [x, y, rx, ry] of [
+      [-10, -3, 8.5, 6.5],
+      [2, 1, 10, 9],
+      [13, -3, 7.5, 6.5],
+      [1, -5, 15, 5],
+    ])
+      p.ellipsoid(x, y, 0, rx, ry, 7, col)
+    for (const x of [-4, 5]) p.box(x, x + 2, -1, 0, 6, 8, '#3a3a48') // sleepy eyes
+    p.box(0, 2, -3, -2, 6, 8, '#3a3a48')
+  },
 }
 
 export const PET_MODELS = { ...FLOOR_PETS, ...HEAD_PETS }
-// models drawn from the side, facing +x: they turn to face the doll (see petAt)
-const PROFILE = ['raptor']
+
+// pets that spread wide stand a little further from the pedestal
+const APART = { rocky: 4 }
 
 // The row a pet on the head stands on: the median height of the columns under it, whatever is up
-// there (hair, a hat, headphones, a cloud), so a lone spike of hair doesn't hold it up on a stalk.
+// there (hair, a hat, headphones), so a lone spike of hair doesn't hold it up on a stalk.
 function topOf(g) {
   const tops = []
   for (let z = -7; z < 7; z++)
@@ -202,10 +207,12 @@ function topOf(g) {
   return tops.sort((a, b) => a - b)[tops.length >> 1]
 }
 
-// Draw a pet into `g`: next to the pedestal at x (the floor grid), or on top of the head (the head's grid).
+// Draw a pet into `g`: next to the pedestal at x (the floor grid), on top of the head (the head's
+// grid) or floating over it (a grid of its own).
 export function petAt(g, pet, x) {
   const draw = PET_MODELS[pet.id]
   if (!draw) return
   if (pet.at === 'head') draw(at(g, [0, topOf(g), 0]))
-  else draw(at(g, [x, 0, 2], { mx: PROFILE.includes(pet.id) && x > 0 }))
+  else if (pet.at === 'float') draw(at(g, [0, HEAD1 + 21, 0]))
+  else draw(at(g, [x + Math.sign(x) * (APART[pet.id] || 0), 0, 2]))
 }

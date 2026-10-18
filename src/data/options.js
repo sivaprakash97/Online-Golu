@@ -120,7 +120,6 @@ export const HEADWEAR = [
   { id: 'kufi', label: 'Kufi' },
   HIJAB,
   { id: 'headphones', label: 'Headphones' },
-  { id: 'cloud', label: 'Little cloud' },
 ]
 
 // What's carried. hold: hand (right hand), both (in front, both hands), side (carried at the side),
@@ -146,19 +145,20 @@ export const ACCESSORIES = [
 ]
 
 // Pets are a choice of their own, apart from what's carried, so a Bommai can hold a guitar and have
-// a cat. at: 'floor' (sits next to the pedestal) or 'head' (perched on top of whatever is up there:
-// hair, a hat, the little cloud). Keep the ids to 7 letters or fewer: the database packs headwear,
-// what's carried and the pet into one 32-character column (see packAccessory).
+// a cat. at: 'floor' (sits next to the pedestal), 'head' (perched on top of whatever is up there:
+// hair, a hat) or 'float' (bobs in the air above the head). Keep the ids to 7 letters or fewer: the
+// database packs headwear, what's carried and the pet into one 32-character column (see packAccessory).
 export const PETS = [
   { id: 'none', label: 'No pet', at: null },
   { id: 'cat', label: 'Cat', at: 'floor' },
   { id: 'dog', label: 'Dog', at: 'floor' },
   { id: 'rocky', label: 'Rocky', at: 'floor' }, // the Eridian from Project Hail Mary
   { id: 'grogu', label: 'Baby Yoda', at: 'floor' },
-  { id: 'raptor', label: 'Raptor', at: 'floor' },
   { id: 'bunny', label: 'Bunny', at: 'head' },
   { id: 'parrot', label: 'Parrot', at: 'head' },
   { id: 'pikachu', label: 'Pikachu', at: 'head' },
+  { id: 'duck', label: 'Rubber duck', at: 'head' },
+  { id: 'cloud', label: 'Little cloud', at: 'float' }, // was headwear; old rows that wore it read as this
 ]
 
 export const POSES = [
@@ -241,8 +241,8 @@ export const showsPair = (outfitId) => ['blouse', 'crop'].includes(LOOKUP.outfit
 
 // The database has one accessory column, so the headwear, what's carried and the pet share it:
 // 'cap+guitar+cat', or any of them alone. Each id belongs to exactly one table, so they can be told
-// apart wherever they sit. Rows from before pets existed hold 'cat' or 'dog' as the carried item,
-// which now reads as the pet; rows from before the headwear was split hold a single id.
+// apart wherever they sit. Rows from before pets existed hold 'cat', 'dog' or the cloud, which now
+// read as the pet; rows from before the headwear was split hold a single id.
 export const packAccessory = (headwear, accessory, pet) => [headwear, accessory, pet].filter((v) => v && v !== 'none').join('+') || 'none'
 function unpackAccessory(v) {
   const out = ['none', 'none', 'none'] // headwear, carried, pet
@@ -261,8 +261,8 @@ export function normalizeConfig(c = {}) {
   // headwear and the pet come apart from the accessory column when read from the database (see packAccessory)
   const [head, held, packed] = c.headwear === undefined ? unpackAccessory(c.accessory) : [c.headwear, c.accessory, 'none']
   const kept = c.pet && c.pet !== 'none' ? c.pet : packed
-  // a cat or dog saved as the carried item is the pet now
-  const pet = LOOKUP.pet[held] && held !== 'none' && kept === 'none' ? held : kept
+  // a cat or dog saved as the carried item, or the cloud saved as headwear, is the pet now
+  const pet = [kept, held, head].find((id) => LOOKUP.pet[id] && id !== 'none') || 'none'
   return {
     name: (c.name || '').slice(0, 24),
     body: ok(LOOKUP.body, c.body, D.body),

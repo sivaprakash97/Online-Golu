@@ -111,20 +111,6 @@ const HEAD_ITEMS = {
     const c = '#f4f1ea'
     g.rounded(-HW - 3, HW + 3, 75, HEAD1 + 8, -HD - 3, HD + 3, 9, (x, y, z) => (y < 77 ? shade(c, -0.08) : mod(x + z, 3) === 0 && mod(y, 2) === 0 ? shade(c, -0.12) : c))
   },
-  // a little cloud floating over the head (drawn in its own grid, so it can bob)
-  cloud(g) {
-    const top = HEAD1 + 21
-    const col = (x, y) => (y < top - 6 ? '#dfe7f2' : '#fbfcfe')
-    for (const [x, y, rx, ry] of [
-      [-10, top - 3, 8.5, 6.5],
-      [2, top + 1, 10, 9],
-      [13, top - 3, 7.5, 6.5],
-      [1, top - 5, 15, 5],
-    ])
-      g.ellipsoid(x, y, 0, rx, ry, 7, col)
-    for (const x of [-4, 5]) g.box(x, x + 2, top - 1, top, 6, 8, '#3a3a48') // sleepy eyes
-    g.box(0, 2, top - 3, top - 2, 6, 8, '#3a3a48')
-  },
   headphones(g) {
     const c = '#e8667a'
     g.rounded(-HW - 3, HW + 3, HEAD1 + 2, HEAD1 + 5, -2, 3, 1.5, DARK)

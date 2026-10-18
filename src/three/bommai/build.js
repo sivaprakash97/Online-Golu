@@ -558,8 +558,7 @@ export function standsOffCentre(c) {
 
 // Returns { body, parts }: `body` is the doll and its pedestal; each part is a piece that moves
 // on its own ({ grid, anim, pivot, side }): the waving forearm, a nodding head, cheering arms, the
-// upper body swaying on its hips, the whole dancing doll, or a cloud floating overhead (with a
-// pet on it, if there is one).
+// upper body swaying on its hips, the whole dancing doll, or a cloud floating overhead.
 export function buildBommai(cfg) {
   const L = resolveLook(cfg)
   const B = BUILDS[cfg.body] || BUILDS.regular
@@ -614,10 +613,10 @@ export function buildBommai(cfg) {
     itemAt(target, acc.id, mode, anchors, { L, B, side: handSide })
   }
   // headwear is its own choice, so it goes with whatever is carried (the hijab is drawn with the head and body)
-  const crown = cfg.headwear === 'cloud' ? part('float', [0, 0, 0]) : head
-  if (cfg.headwear !== 'none' && !L.hijab) itemAt(crown, cfg.headwear, 'head', anchors, { L, B })
-  // and so does a pet: on top of the hair or the hat (or the cloud), or on the floor
-  if (pet?.at === 'head') petAt(crown, pet)
+  if (cfg.headwear !== 'none' && !L.hijab) itemAt(head, cfg.headwear, 'head', anchors, { L, B })
+  // and so does a pet: on the floor, on top of the hair or the hat, or floating over the head
+  if (pet?.at === 'head') petAt(head, pet)
+  if (pet?.at === 'float') petAt(part('float', [0, 0, 0]), pet)
   if (pet?.at === 'floor') petAt(floor, pet, mode === 'ground' ? -FLOOR_X : FLOOR_X)
 
   const armPose = (side) => {
