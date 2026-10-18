@@ -83,14 +83,9 @@ const MOVES = {
   // Rocky's jazz hands: the arms sway, one then the other, and the hands shake at the wrists
   arm: (o, t, side) => (o.rotation.z = side * Math.sin(t * 4.6 + (side > 0 ? 0 : Math.PI)) * 0.2),
   hand: (o, t, side) => (o.rotation.z = Math.sin(t * 15 + (side > 0 ? 0 : 1.5)) * 0.32),
-  // a spark from the cheeks: every few seconds the bolts grow out of the cheek, hold a moment and
-  // shrink back
-  zap: (o, t) => {
-    const u = (t % 2.8) / 0.9
-    const g = u >= 1 ? 0 : u < 0.35 ? 1 - (1 - u / 0.35) ** 2 : u < 0.7 ? 1 : (1 - u) / 0.3
-    o.visible = g > 0.02
-    o.scale.setScalar(Math.max(g, 0.01))
-  },
+  // sparks from the cheeks: a short burst every few seconds, flickering between two shapes (side
+  // picks the shape)
+  zap: (o, t, side) => (o.visible = t % 2.8 < 0.5 && (Math.floor(t * 22) % 2 === 0) === side > 0),
   // a raindrop falls from the cloud and shrinks away; `arg` staggers the drops
   drip: (o, t, side, p, i = 0) => {
     const u = (t * 0.55 + i * 0.37) % 1
