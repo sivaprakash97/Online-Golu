@@ -1,4 +1,5 @@
-import { LOOKUP, spotsOnStep, centreOut } from '../../data/options.js'
+import { spotsOnStep, centreOut } from '../../data/options.js'
+import { standsOffCentre } from '../bommai/build.js'
 import { MathUtils } from 'three'
 
 // Golu dimensions (world units; a Bommai is ~1 unit tall).
@@ -58,8 +59,8 @@ export function computeLayout(bommais) {
     const slot = slots.get(b.id)
     if (slot === undefined) continue
     const p = slotPos(b.step, slot)
-    // ground accessories sit on the doll's left, so shift the doll right within its spot
-    if (LOOKUP.accessory[b.accessory]?.hold === 'ground') p.x -= GROUND_EXTRA / 2
+    // something set down beside the pedestal (an item or a pet) takes the doll's left, so shift the doll right within its spot
+    if (standsOffCentre(b)) p.x -= GROUND_EXTRA / 2
     out.set(b.id, p)
   }
   return out

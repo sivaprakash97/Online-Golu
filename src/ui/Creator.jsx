@@ -20,6 +20,7 @@ import {
   FACE_EXTRAS,
   HEADWEAR,
   ACCESSORIES,
+  PETS,
   POSES,
   randomConfig,
   pairColor,
@@ -164,6 +165,13 @@ function Options({ cat, config, set }) {
         <>
           <Section title="Headwear">{grid(HEADWEAR, 'headwear', 'full', setHeadwear)}</Section>
           <Section title="Carriable">{grid(ACCESSORIES, 'accessory', 'full')}</Section>
+          <Section title="Pets" aside={<span className="hint">on the floor or on your head</span>}>
+            <div className="tile-grid">
+              {PETS.map((o) => (
+                <Tile key={o.id} label={o.label} frame={o.at === 'head' ? 'crown' : o.at === 'floor' ? 'beside' : 'full'} config={{ ...config, pet: o.id }} selected={config.pet === o.id} onClick={() => set({ pet: o.id })} />
+              ))}
+            </div>
+          </Section>
         </>
       )
     case 'pose':

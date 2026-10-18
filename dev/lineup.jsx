@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import Bommai from '../src/three/bommai/Bommai.jsx'
 import SoftEnv from '../src/three/SoftEnv.jsx'
 import { SEED_BOMMAIS } from '../src/data/seed.js'
-import { ACCESSORIES, HEADWEAR, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES } from '../src/data/options.js'
+import { ACCESSORIES, HEADWEAR, PETS, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COLORS, POSES } from '../src/data/options.js'
 
 // Dev-only page (not part of the build): `npm run dev`, then open /dev/lineup.html.
 // Shows a row of Bommais under soft studio light, to judge the look of the dolls.
@@ -14,6 +14,7 @@ import { ACCESSORIES, HEADWEAR, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COL
 //   ?set=poses           every pose, twice
 //   ?set=faces           the eye styles and face extras
 //   ?set=items           every accessory
+//   ?set=pets            every pet, beside a Bommai and with a hat on
 //   ?set=hair            every hairstyle
 //   ?set=pairs           the two-tone outfits (saree, pavadai, crop top + skirt) in every colour
 //   ?set=modest          the hijab, abaya, sharara, thobe and kufi, in the poses that test them
@@ -22,6 +23,7 @@ import { ACCESSORIES, HEADWEAR, DEFAULT_CONFIG, HAIR_STYLES, OUTFITS, OUTFIT_COL
 //   ?pick=1,4,7          just these ones
 //   ?angle=0.5           turn them (radians)
 //   ?dist=1&y=0.7        move the camera in, looking at height y
+//   ?x=0.4               and at this far to the right (the pets beside the pedestal)
 //   ?move                let them move (idle animation and their pose's moves)
 //   ?clear               transparent background and no floor (for rendering icons)
 const look = { body: 'regular', skin_tone: 'medium-brown', hair: 'long-wavy', hair_color: 'black', face: 'round', face_extras: [], accessory: 'none' }
@@ -56,7 +58,14 @@ const MODEST = [
   { outfit: 'thobe', outfit_color: 'sky', hair: 'side-part', headwear: 'kufi', accessory: 'book', pose: 'sitting', skin_tone: 'tan' },
   { outfit: 'sharara', outfit_color: 'maroon', headwear: 'hijab', pose: 'cross-legged', accessory: 'flowers' },
 ].map((c) => ({ ...look, name: `${c.outfit} ${c.pose}`, ...c }))
-const SETS = { modest: MODEST, pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
+// every pet, standing next to a Bommai; then each again with a hat or something on the floor, to check they share the space
+const PET_SET = [
+  ...PETS.slice(1).map((pet, i) => ({ ...look, name: pet.label, pet: pet.id, outfit: ['shirt-pants', 'pavadai', 'tee-jeans', 'salwar'][i % 4], outfit_color: ['sky', 'rose', 'mustard', 'peacock'][i % 4], hair: ['short-crop', 'long-straight', 'braid', 'ponytail'][i % 4], pose: 'standing' })),
+  ...PETS.slice(1).map((pet, i) => ({ ...look, name: pet.label + ' +', pet: pet.id, headwear: ['cap', 'beanie', 'fedora', 'headphones', 'cloud', 'kufi', 'hijab', 'cap'][i % 8], accessory: ['plant', 'guitar', 'handbag', 'easel'][i % 4], hair: ['top-bun', 'spiky', 'puffs', 'curly'][i % 4], pose: ['standing', 'dancing', 'sitting', 'namaste'][i % 4] })),
+  // the pets that perch, on top of each kind of headwear
+  ...['cloud', 'beanie', 'fedora', 'headphones', 'hijab', 'cap', 'kufi', 'none'].map((headwear, i) => ({ ...look, name: headwear, pet: ['bunny', 'parrot', 'pikachu'][i % 3], headwear, outfit: headwear === 'hijab' ? 'abaya' : 'kurta', outfit_color: 'peacock', hair: ['top-bun', 'curly', 'puffs', 'spiky'][i % 4], pose: ['standing', 'dancing', 'namaste', 'cross-legged'][i % 4] })),
+]
+const SETS = { pets: PET_SET, modest: MODEST, pairs: PAIRS, hair: HAIR, items: ITEMS, showcase: SHOWCASE, poses: POSE_SET, faces: FACES, default: [DEFAULT_CONFIG] }
 const set = SETS[q.get('set')] || SEED_BOMMAIS
 const only = q.get('only')
 const from = +(q.get('from') || 0)
@@ -68,10 +77,11 @@ const gap = 1.0
 const width = (list.length - 1) * gap
 const dist = +(q.get('dist') || 0) || (only != null ? 2.4 : Math.max(3, width * 0.62))
 const lookY = +(q.get('y') || 0.5)
+const lookX = +(q.get('x') || 0)
 
 function App() {
   return (
-    <Canvas shadows dpr={1} camera={{ fov: 30, position: [0, lookY + 0.2, dist] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, preserveDrawingBuffer: true, alpha: true }}>
+    <Canvas shadows dpr={1} camera={{ fov: 30, position: [lookX, lookY + 0.2, dist] }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, preserveDrawingBuffer: true, alpha: true }}>
       {!clear && <color attach="background" args={['#e9dccd']} />}
       <hemisphereLight args={['#fff6ea', '#b89b86', 1.0]} />
       <directionalLight position={[-2.5, 4, 3.5]} intensity={2.0} color="#fff1df" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={4} shadow-camera-bottom={-2} />
@@ -86,7 +96,7 @@ function App() {
       {list.map((c, i) => (
         <Bommai key={i} config={c} idle={q.has('move')} position={[i * gap - width / 2, 0, 0]} rotation={[0, angle, 0]} />
       ))}
-      <OrbitControls target={[0, lookY, 0]} />
+      <OrbitControls target={[lookX, lookY, 0]} />
     </Canvas>
   )
 }

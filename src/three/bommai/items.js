@@ -13,7 +13,7 @@ const DARK = '#2b2c33'
 // Draw relative to an anchor, optionally mirrored in x or z.
 // Draw relative to an anchor, optionally mirrored in x or z, or turned upright (`turn`: the
 // item's +x points down, for things that lie along x when held but stand on end on the floor).
-function at(g, [ax, ay, az], { mx = false, mz = false, turn = false } = {}) {
+export function at(g, [ax, ay, az], { mx = false, mz = false, turn = false } = {}) {
   const X = (x0, x1) => (mx ? [ax - x1, ax - x0] : [ax + x0, ax + x1])
   const Z = (z0, z1) => (mz ? [az - z1, az - z0] : [az + z0, az + z1])
   const wrap = (c) => (typeof c === 'function' ? (x, y, z) => c(mx ? ax - x - 1 : x - ax, y - ay, mz ? az - z - 1 : z - az) : c)
@@ -290,30 +290,6 @@ const GROUND_ITEMS = {
       [0, 21, -1, '#6fbf5a'],
     ])
       p.ellipsoid(x, y, z, 3.4, 3, 3.4, c)
-  },
-  cat(p) {
-    const c = '#e39a52'
-    const stripe = '#c4782f'
-    p.ellipsoid(0, 5, 0, 5, 5.5, 4.5, (x, y) => (mod(y, 3) === 0 ? stripe : c)) // body
-    p.ellipsoid(0, 13, 1.5, 5, 4.5, 4, c) // head
-    for (let k = 0; k < 3; k++) (p.box(-4, -1 - k, 16 + k, 17 + k, 0, 3, c), p.box(1 + k, 4, 16 + k, 17 + k, 0, 3, c)) // ears
-    p.set(-2, 13, 5, '#1c1c22')
-    p.set(1, 13, 5, '#1c1c22')
-    p.set(-1, 11, 5, '#f08aa0')
-    p.set(0, 11, 5, '#f08aa0')
-    for (let y = 1; y < 10; y++) p.box(4 + (y > 6 ? 1 : 0), 6 + (y > 6 ? 1 : 0), y, y + 1, -4, -2, mod(y, 3) ? c : stripe) // tail
-  },
-  dog(p) {
-    const c = '#c9a074'
-    p.ellipsoid(0, 5, -1, 5, 5.5, 5, c) // body
-    p.ellipsoid(0, 13, 1, 5, 4.5, 4.5, c) // head
-    p.rounded(-2, 2, 10, 13, 4, 8, 1, '#e8d2b0') // snout
-    p.set(-1, 12, 7, '#1c1c22')
-    p.set(0, 12, 7, '#1c1c22')
-    p.set(-3, 14, 5, '#1c1c22')
-    p.set(2, 14, 5, '#1c1c22')
-    for (const s of [-1, 1]) p.rounded(s > 0 ? 4 : -6, s > 0 ? 6 : -4, 8, 16, -1, 3, 1, '#8a6440') // floppy ears
-    p.rounded(-1, 1, 3, 9, -8, -5, 0.8, c) // tail
   },
   handbag(p) {
     const c = '#f2b632'

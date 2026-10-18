@@ -2,9 +2,10 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import Bommai from './bommai/Bommai.jsx'
+import { standsOffCentre } from './bommai/build.js'
 import { Torus, Disc } from './prims.jsx'
 import { GOLU, slotPos, freeSlots, pickStep } from './golu/layout.js'
-import { LOOKUP, OPEN_STEPS, SPOTS_PER_GOLU } from '../data/options.js'
+import { OPEN_STEPS, SPOTS_PER_GOLU } from '../data/options.js'
 
 // Drag and drop for Bommais, picked up by the head.
 // press(event, item) starts a gesture on a doll; past a few pixels it becomes a drag. The doll then
@@ -31,7 +32,7 @@ const v3 = (a) => new THREE.Vector3(...a)
 
 const baseFor = (config, step, slot) => {
   const p = slotPos(step, slot)
-  if (LOOKUP.accessory[config.accessory]?.hold === 'ground') p.x -= 0.17
+  if (standsOffCentre(config)) p.x -= 0.17
   return [p.x, p.y, p.z]
 }
 
