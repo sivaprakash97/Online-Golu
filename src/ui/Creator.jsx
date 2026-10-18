@@ -78,11 +78,11 @@ function Section({ title, children, aside }) {
   )
 }
 
-// Accessories has a lot in it, so it is split into tabs: what's worn, what's carried, and pets
+// Accessories has a lot in it, so it is split into tabs: what's worn, what's carried, and companions (the pets)
 const ACCESSORY_TABS = [
   { id: 'headwear', label: 'Headwear' },
   { id: 'carry', label: 'Carriable' },
-  { id: 'pets', label: 'Pets' },
+  { id: 'pets', label: 'Companions' },
 ]
 
 function Accessories({ config, set, setHeadwear, grid }) {

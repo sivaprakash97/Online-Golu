@@ -149,7 +149,7 @@ export const ACCESSORIES = [
 // hair, a hat) or 'float' (bobs in the air above the head). Keep the ids to 7 letters or fewer: the
 // database packs headwear, what's carried and the pet into one 32-character column (see packAccessory).
 export const PETS = [
-  { id: 'none', label: 'No pet', at: null },
+  { id: 'none', label: 'None', at: null },
   { id: 'cat', label: 'Cat', at: 'floor' },
   { id: 'dog', label: 'Dog', at: 'floor' },
   { id: 'rocky', label: 'Rocky', at: 'floor' }, // the Eridian from Project Hail Mary
