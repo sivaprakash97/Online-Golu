@@ -1,5 +1,4 @@
 import { shade, mod, hash3, HEAD0, HEAD1 } from './dims.js'
-import { glow } from '../voxel/grid.js'
 import { at } from './items.js'
 
 // Pets as little voxel models. Each is drawn relative to where it stands (x = 0, z = 0 is the middle
@@ -151,48 +150,6 @@ const HEAD_PETS = {
     p.box(-1, 1, 13, 14, 5, 8, '#4a4540') // the lower beak
     // long tail feathers trailing behind
     for (let k = 0; k < 12; k++) p.box(-1, 2, 5 - Math.round(k * 0.4), 7 - Math.round(k * 0.4), -4 - k, -3 - k, k > 6 ? blue : (x) => (x === 0 ? red : blue))
-  },
-  pikachu(p, mk) {
-    const yellow = '#f6d043'
-    const brown = '#9a6a2a'
-    p.ellipsoid(0, 5, -0.5, 5, 5, 4.5, (x, y, z) => (z < -3 && (y === 3 || y === 6) ? brown : yellow)) // body, with its back stripes
-    p.ellipsoid(0, 12, 1, 5.5, 4.5, 4.5, yellow) // head
-    for (const s of [-1, 1]) {
-      for (let k = 0; k < 10; k++) {
-        const w = k < 5 ? 3 : 2
-        const x = s > 0 ? Math.round(2.5 + k * 0.4) : -Math.round(2.5 + k * 0.4) - w
-        p.box(x, x + w, 15 + k, 16 + k, 0, 2, k > 6 ? DARK : yellow) // long ears, black at the tips
-      }
-      p.box(s > 0 ? 2 : -4, s > 0 ? 4 : -2, 12, 14, 4, 6, DARK) // eyes
-      p.set(s > 0 ? 3 : -4, 13, 6, WHITE)
-      p.ellipsoid(s * 4.2, 9.8, 3.2, 1.9, 1.9, 1.6, '#e0402f') // red cheeks
-      p.ellipsoid(s * 4.6, 4, 3, 1.4, 2, 1.4, yellow) // arms
-      p.ellipsoid(s * 2.5, 1, 2.5, 2, 1.2, 3, yellow) // feet
-    }
-    p.set(0, 11, 5, DARK) // nose
-    p.box(-1, 1, 9, 10, 5, 6, DARK) // mouth
-    // the lightning-bolt tail
-    p.box(0, 2, 2, 4, -8, -6, brown)
-    p.box(1, 5, 4, 7, -8, -6, yellow)
-    p.box(-1, 3, 7, 10, -8, -6, yellow)
-    p.box(2, 8, 10, 14, -8, -6, yellow)
-    // sparks from the cheeks every few seconds, flickering between two shapes (see MOVES.zap)
-    const spark = glow('#ffd72e')
-    const zig = (q, pts) => {
-      for (const s of [-1, 1])
-        for (let i = 1; i < pts.length; i++) {
-          const [x0, y0] = pts[i - 1]
-          const [x1, y1] = pts[i]
-          const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
-          for (let k = 0; k <= n; k++) {
-            const x = Math.round(x0 + ((x1 - x0) * k) / n)
-            const y = Math.round(y0 + ((y1 - y0) * k) / n)
-            q.box(s > 0 ? x : -x - 2, (s > 0 ? x : -x - 2) + 2, y, y + 2, 4, 6, spark)
-          }
-        }
-    }
-    zig(mk('zap', [0, 10, 3], { side: 1, hidden: true }), [[6, 10], [9, 12], [8, 14], [12, 16], [11, 18], [14, 20]])
-    zig(mk('zap', [0, 10, 3], { side: -1, hidden: true }), [[6, 9], [9, 8], [8, 6], [12, 5], [11, 3], [14, 2]])
   },
   // a rubber duck, sitting on the head and rocking as if in a bath
   duck(p) {
