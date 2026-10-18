@@ -176,23 +176,25 @@ const HEAD_PETS = {
     p.box(1, 5, 4, 7, -8, -6, yellow)
     p.box(-1, 3, 7, 10, -8, -6, yellow)
     p.box(2, 8, 10, 14, -8, -6, yellow)
-    // sparks from the cheeks every few seconds, flickering between two shapes (see MOVES.zap)
+    // a spark from each cheek every few seconds: two small bolts that grow out of the cheek, hold,
+    // then shrink back (see MOVES.zap)
     const spark = glow('#ffd72e')
-    const zig = (q, pts) => {
-      for (const s of [-1, 1])
-        for (let i = 1; i < pts.length; i++) {
-          const [x0, y0] = pts[i - 1]
-          const [x1, y1] = pts[i]
-          const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
-          for (let k = 0; k <= n; k++) {
-            const x = Math.round(x0 + ((x1 - x0) * k) / n)
-            const y = Math.round(y0 + ((y1 - y0) * k) / n)
-            q.box(s > 0 ? x : -x - 2, (s > 0 ? x : -x - 2) + 2, y, y + 2, 4, 6, spark)
-          }
+    const zig = (q, s, pts) => {
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1]
+        const [x1, y1] = pts[i]
+        const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
+        for (let k = 0; k <= n; k++) {
+          const x = Math.round(x0 + ((x1 - x0) * k) / n)
+          q.box(s > 0 ? x : -x - 1, s > 0 ? x + 1 : -x, Math.round(y0 + ((y1 - y0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n) + 1, 4, 6, spark)
         }
+      }
     }
-    zig(mk('zap', [0, 10, 3], { side: 1, hidden: true }), [[6, 10], [9, 12], [8, 14], [12, 16], [11, 18], [14, 20]])
-    zig(mk('zap', [0, 10, 3], { side: -1, hidden: true }), [[6, 9], [9, 8], [8, 6], [12, 5], [11, 3], [14, 2]])
+    for (const s of [-1, 1]) {
+      const bolt = mk('zap', [s > 0 ? 6 : -6, 10, 4], { side: s, hidden: true })
+      zig(bolt, s, [[6, 11], [8, 12], [7, 13], [10, 15], [9, 16], [11, 18]])
+      zig(bolt, s, [[6, 9], [8, 8], [7, 7], [10, 5], [9, 4], [11, 2]])
+    }
   },
   // a rubber duck, sitting on the head and rocking as if in a bath
   duck(p) {
