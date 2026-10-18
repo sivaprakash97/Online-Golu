@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
+import { prebuildLooks } from './three/bommai/Bommai.jsx'
 import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
@@ -69,6 +70,12 @@ export default function App() {
   const [view, setView] = useState({ kind: null, n: 0 }) // camera commands from the view buttons
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
   const [spawns, setSpawns] = useState({})
+  // The opening camera pan waits for the Bommais (at most 3s) so it never lands on an empty Golu.
+  const [introReady, setIntroReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setIntroReady(true), 3000)
+    return () => clearTimeout(t)
+  }, [])
   const [myIds, setMyIds] = useState(readMine)
   const [focusId, setFocusId] = useState(null)
   const [tagId, setTagId] = useState(null)
@@ -86,12 +93,17 @@ export default function App() {
   // load + realtime
   useEffect(() => {
     let unsub = () => {}
-    loadBommais().then((rows) => {
+    loadBommais().then(async (rows) => {
+      // The dolls are built in workers: the first Golu's before it fills up (so the page doesn't
+      // freeze while they pop in), then the others', which fill in out of sight.
+      const first = rows.filter((r) => r.golu === 1)
+      await prebuildLooks(first)
+      prebuildLooks(rows.filter((r) => r.golu !== 1))
       setBommais(rows)
       setGolus(goluCount())
+      setIntroReady(true)
       // Only the first Golu fills up on load; the others are already full when you turn to them.
       // The dolls pop in quickly, and however many there are the whole fill-up spreads over about a second.
-      const first = rows.filter((r) => r.golu === 1)
       const t0 = 0.15
       const gap = Math.min(0.035, 1 / Math.max(1, first.length))
       setSpawns(Object.fromEntries(first.map((r, i) => [r.id, { type: 'pop', delay: t0 + i * gap }])))
@@ -323,6 +335,7 @@ export default function App() {
       <div className={`app mode-${mode}`}>
         <div className="stage">
           <GoluScene
+            introReady={introReady}
             bommais={bommais}
             golus={golus}
             turn={turn}

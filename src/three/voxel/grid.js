@@ -24,6 +24,22 @@ export class VoxelGrid {
     this.ox = sx >> 1
     this.oz = sz >> 1
     this.data = new Uint32Array(sx * sy * sz)
+    // the box anything has been drawn into, as data indices [x, y, z] (lo) and (hi), so meshing
+    // only sweeps that and not the whole grid
+    this.bounds = { lo: [sx, sy, sz], hi: [-1, -1, -1] }
+  }
+  touch(i) {
+    const { lo, hi } = this.bounds
+    const x = i % this.sx
+    const r = (i - x) / this.sx
+    const z = r % this.sz
+    const y = (r - z) / this.sz
+    if (x < lo[0]) lo[0] = x
+    if (x > hi[0]) hi[0] = x
+    if (y < lo[1]) lo[1] = y
+    if (y > hi[1]) hi[1] = y
+    if (z < lo[2]) lo[2] = z
+    if (z > hi[2]) hi[2] = z
   }
   index(x, y, z) {
     const i = x + this.ox
@@ -40,7 +56,10 @@ export class VoxelGrid {
   }
   set(x, y, z, c) {
     const i = this.index(x, y, z)
-    if (i >= 0) this.data[i] = word(c)
+    if (i < 0) return
+    const w = word(c)
+    this.data[i] = w
+    if (w) this.touch(i)
   }
   // Recolour a voxel only if something is already there (face paint, patterns).
   paint(x, y, z, c) {
@@ -116,6 +135,8 @@ export class VoxelGrid {
       ox: g.ox,
       oz: g.oz,
       data: g.data,
+      bounds: g.bounds,
+      touch: (i) => g.touch(i),
       index: (x, y, z) => g.index(x, y + dy, z),
       shifted: (d) => g.shifted(dy + d),
     })
