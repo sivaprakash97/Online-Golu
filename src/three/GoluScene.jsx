@@ -56,7 +56,7 @@ const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRU
 // Golu. With `swipe` (touch screens, on the home screen only: while placing, a drag that misses the
 // tiny doll must never turn the stage), a sideways swipe turns the stage straight away instead.
 // Every turn (`turnKey` changes) brings the camera back to the current shot.
-function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
+function CameraRig({ hold, shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
   const ref = useRef()
   const { size, gl } = useThree()
   const aspect = size.width / size.height
@@ -71,12 +71,12 @@ function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, tur
 
   useEffect(() => {
     const c = ref.current
-    if (!c) return
+    if (!c || hold) return // `hold`: the opening pan waits for the Bommais
     const s = shotFor(shot, aspect, focus)
     c.smoothTime = shot === 'focus' ? 0.45 : 0.7
     c.setLookAt(...s.pos, ...s.target, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shot, focusKey, aspect])
+  }, [shot, focusKey, aspect, hold])
 
   useEffect(() => {
     const c = ref.current
@@ -459,6 +459,7 @@ function Lights() {
 // space, which is where the Golu facing you stands. `onTurnBy(±1)` asks to turn to the next one;
 // with `swipeToTurn` (touch screens) a sideways swipe turns it.
 export default function GoluScene({
+  introReady = true,
   bommais,
   golus = 1,
   turn = { golu: 1, dir: 0, n: 0 },
@@ -521,6 +522,7 @@ export default function GoluScene({
         <Lights />
         <SoftEnv intensity={0.22} />
         <CameraRig
+          hold={!introReady}
           shot={shot}
           focus={focus}
           controlsEnabled={exploring}

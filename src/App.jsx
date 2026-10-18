@@ -69,6 +69,12 @@ export default function App() {
   const [view, setView] = useState({ kind: null, n: 0 }) // camera commands from the view buttons
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
   const [spawns, setSpawns] = useState({})
+  // The opening camera pan waits for the Bommais (at most 2s) so it never lands on an empty Golu.
+  const [introReady, setIntroReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setIntroReady(true), 2000)
+    return () => clearTimeout(t)
+  }, [])
   const [myIds, setMyIds] = useState(readMine)
   const [focusId, setFocusId] = useState(null)
   const [tagId, setTagId] = useState(null)
@@ -89,6 +95,7 @@ export default function App() {
     loadBommais().then((rows) => {
       setBommais(rows)
       setGolus(goluCount())
+      setIntroReady(true)
       // Only the first Golu fills up on load; the others are already full when you turn to them.
       // The dolls pop in quickly, and however many there are the whole fill-up spreads over about a second.
       const first = rows.filter((r) => r.golu === 1)
@@ -323,6 +330,7 @@ export default function App() {
       <div className={`app mode-${mode}`}>
         <div className="stage">
           <GoluScene
+            introReady={introReady}
             bommais={bommais}
             golus={golus}
             turn={turn}
