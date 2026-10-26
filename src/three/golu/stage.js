@@ -23,6 +23,7 @@ const LEAF = ['#2f7d3d', '#4f9a44']
 export const GOLU_THEMES = {
   1: { key: '', risers: ['#8e1f2e', '#a3283a'], locked: '#13505a', arch: '#e9b77a', archBorder: '#b8452f', archDots: '#c8323a' },
   2: { key: '-g2', risers: ['#13505a', '#196270'], locked: '#8e1f2e', arch: '#b9d3b4', archBorder: '#2d6b52', archDots: '#e8b33c' },
+  3: { key: '-g3', risers: ['#6b2a78', '#7d3590'], locked: '#c98a1b', arch: '#f1cde0', archBorder: '#7a2e6e', archDots: '#f2c14e' },
 }
 export const goluTheme = (golu) => GOLU_THEMES[golu] || GOLU_THEMES[1]
 

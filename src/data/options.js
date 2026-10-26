@@ -290,9 +290,9 @@ export const spotsOnStep = (step) => (step >= 1 && step <= 7 ? 16 - step : 0)
 export const SPOTS_PER_GOLU = OPEN_STEPS.reduce((n, k) => n + spotsOnStep(k), 0)
 
 // The Golus on the carousel, numbered from 1. Each is a full nine-step Golu with the same spots.
-// supabase/migrations/20261017000000_second_golu.sql repeats the count (check golu between 1 and 2);
+// supabase/migrations/20261017000000_second_golu.sql repeats the count (check golu between 1 and 3, see the third_golu migration);
 // to open another Golu, raise both.
-export const GOLU_COUNT = 2
+export const GOLU_COUNT = 3
 
 // Free spots left on each Golu (index 0 is Golu 1), counting only spots that exist.
 export function freeSpotsByGolu(bommais, count = GOLU_COUNT) {
