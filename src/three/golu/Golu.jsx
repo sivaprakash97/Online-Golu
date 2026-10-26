@@ -41,6 +41,18 @@ export const TRADITIONAL_SLOTS = {
     { step: 8, x: 1.9, piece: 'brass-vessels' },
     { step: 8, x: 3.8, piece: 'elephant', flip: true },
   ],
+  3: [
+    { step: 9, x: -3.9, piece: 'kuthuvilakku' },
+    { step: 9, x: -2.1, piece: 'kalasam' },
+    { step: 9, x: 0, piece: 'mandapam' },
+    { step: 9, x: 2.1, piece: 'kalasam' },
+    { step: 9, x: 3.9, piece: 'kuthuvilakku' },
+    { step: 8, x: -3.8, piece: 'marapachi' },
+    { step: 8, x: -1.9, piece: 'elephant' },
+    { step: 8, x: 0, piece: 'peacock' },
+    { step: 8, x: 1.9, piece: 'brass-vessels', flip: true },
+    { step: 8, x: 3.8, piece: 'chettiar-shop' },
+  ],
 }
 const slotsFor = (golu) => TRADITIONAL_SLOTS[golu] || TRADITIONAL_SLOTS[1]
 const FLOOR_LAMPS = [-4.4, 4.4].map((x) => [x, 0, 2.2])
