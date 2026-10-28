@@ -295,34 +295,6 @@ input:focus-visible {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.sound-toggle[aria-pressed='true'] svg {
-  opacity: 0.7;
-}
-.sound-toggle.is-compact {
-  margin-left: 12px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--ink-3);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  vertical-align: middle;
-  opacity: 0.75;
-  transition: opacity 0.15s;
-}
-.sound-toggle.is-compact:hover,
-.sound-toggle.is-compact:focus-visible {
-  opacity: 1;
-}
-.sound-toggle.is-compact span {
-  font-family: var(--display);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 .explore-hint {
   position: absolute;
   left: 50%;
@@ -1203,16 +1175,6 @@ input:focus-visible {
 }
 .is-portrait .creator-count {
   min-width: 0;
-}
-.is-portrait .sound-toggle.is-compact {
-  margin-left: 0;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  justify-content: center;
-}
-.is-portrait .sound-toggle.is-compact span {
-  display: none;
 }
 .is-portrait .preview {
   padding: 10px 16px 0;
