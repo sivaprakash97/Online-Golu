@@ -50,10 +50,13 @@ export function ThumbnailProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [version, force] = useState(0)
   const pending = useRef(new Set())
+  // the hidden canvas (a second WebGL context) is only made once the first tile asks for a picture
+  const [armed, setArmed] = useState(false)
 
   const request = useCallback((key, frame, config) => {
     if (cache.has(key) || pending.current.has(key)) return
     pending.current.add(key)
+    setArmed(true)
     setQueue((q) => [...q, { key, frame, config }])
   }, [])
 
@@ -67,20 +70,22 @@ export function ThumbnailProvider({ children }) {
   return (
     <ThumbCtx.Provider value={useMemo(() => ({ request, version }), [request, version])}>
       {children}
-      <div className="thumb-factory" aria-hidden>
-        <Canvas
-          dpr={1}
-          gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true }}
-          camera={{ fov: 30, near: 0.05, far: 20 }}
-          frameloop={queue.length ? 'always' : 'never'}
-        >
-          <hemisphereLight args={['#fff2dc', '#8a4a30', 1.1]} />
-          <directionalLight position={[-2, 4, 4]} intensity={2.1} color="#ffe6c4" />
-          <directionalLight position={[3, 1, 2]} intensity={0.5} />
-          <SoftEnv intensity={0.25} />
-          <Worker job={queue[0]} onDone={done} />
-        </Canvas>
-      </div>
+      {armed && (
+        <div className="thumb-factory" aria-hidden>
+          <Canvas
+            dpr={1}
+            gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true }}
+            camera={{ fov: 30, near: 0.05, far: 20 }}
+            frameloop={queue.length ? 'always' : 'never'}
+          >
+            <hemisphereLight args={['#fff2dc', '#8a4a30', 1.1]} />
+            <directionalLight position={[-2, 4, 4]} intensity={2.1} color="#ffe6c4" />
+            <directionalLight position={[3, 1, 2]} intensity={0.5} />
+            <SoftEnv intensity={0.25} />
+            <Worker job={queue[0]} onDone={done} />
+          </Canvas>
+        </div>
+      )}
     </ThumbCtx.Provider>
   )
 }

@@ -8,9 +8,17 @@ export const SHINY = 1 << 25 // drawn with the metallic material (gold, sequins)
 export const GLOW = 1 << 26 // drawn unlit at full brightness (lamp flames)
 
 // A colour word: '#rrggbb' or 0xrrggbb, optionally with SHINY or'ed in.
+const parsed = new Map() // '#rrggbb' -> word; the big stage grids draw millions of voxels in a handful of colours
 export function word(c) {
   if (c == null || c === false) return 0
-  if (typeof c === 'string') return parseInt(c.slice(1), 16) | PRESENT
+  if (typeof c === 'string') {
+    let w = parsed.get(c)
+    if (w === undefined) {
+      w = parseInt(c.slice(1), 16) | PRESENT
+      if (parsed.size < 4096) parsed.set(c, w)
+    }
+    return w
+  }
   return c | PRESENT
 }
 export const shiny = (c) => word(c) | SHINY
@@ -24,28 +32,17 @@ export class VoxelGrid {
     this.ox = sx >> 1
     this.oz = sz >> 1
     this.data = new Uint32Array(sx * sy * sz)
+    this.dy = 0 // set on the views made by shifted()
     // the box anything has been drawn into, as data indices [x, y, z] (lo) and (hi), so meshing
     // only sweeps that and not the whole grid
     this.bounds = { lo: [sx, sy, sz], hi: [-1, -1, -1] }
   }
-  touch(i) {
-    const { lo, hi } = this.bounds
-    const x = i % this.sx
-    const r = (i - x) / this.sx
-    const z = r % this.sz
-    const y = (r - z) / this.sz
-    if (x < lo[0]) lo[0] = x
-    if (x > hi[0]) hi[0] = x
-    if (y < lo[1]) lo[1] = y
-    if (y > hi[1]) hi[1] = y
-    if (z < lo[2]) lo[2] = z
-    if (z > hi[2]) hi[2] = z
-  }
   index(x, y, z) {
     const i = x + this.ox
+    const j = y + this.dy
     const k = z + this.oz
-    if (i < 0 || i >= this.sx || y < 0 || y >= this.sy || k < 0 || k >= this.sz) return -1
-    return (y * this.sz + k) * this.sx + i
+    if (i < 0 || i >= this.sx || j < 0 || j >= this.sy || k < 0 || k >= this.sz) return -1
+    return (j * this.sz + k) * this.sx + i
   }
   get(x, y, z) {
     const i = this.index(x, y, z)
@@ -55,11 +52,23 @@ export class VoxelGrid {
     return this.get(x, y, z) !== 0
   }
   set(x, y, z, c) {
-    const i = this.index(x, y, z)
-    if (i < 0) return
-    const w = word(c)
-    this.data[i] = w
-    if (w) this.touch(i)
+    this.put(x, y, z, word(c))
+  }
+  // set() with the colour word already worked out
+  put(x, y, z, w) {
+    const i = x + this.ox
+    const j = y + this.dy
+    const k = z + this.oz
+    if (i < 0 || i >= this.sx || j < 0 || j >= this.sy || k < 0 || k >= this.sz) return
+    this.data[(j * this.sz + k) * this.sx + i] = w
+    if (!w) return
+    const { lo, hi } = this.bounds
+    if (i < lo[0]) lo[0] = i
+    if (i > hi[0]) hi[0] = i
+    if (j < lo[1]) lo[1] = j
+    if (j > hi[1]) hi[1] = j
+    if (k < lo[2]) lo[2] = k
+    if (k > hi[2]) hi[2] = k
   }
   // Recolour a voxel only if something is already there (face paint, patterns).
   paint(x, y, z, c) {
@@ -69,11 +78,14 @@ export class VoxelGrid {
   // Fill [x0, x1) × [y0, y1) × [z0, z1). `c` may be a colour or a function (x, y, z) => colour | null.
   box(x0, x1, y0, y1, z0, z1, c) {
     const fn = typeof c === 'function'
+    const w = fn || c == null ? 0 : word(c)
     for (let y = y0; y < y1; y++)
       for (let z = z0; z < z1; z++)
         for (let x = x0; x < x1; x++) {
-          const v = fn ? c(x, y, z) : c
-          if (v != null) this.set(x, y, z, v)
+          if (fn) {
+            const v = c(x, y, z)
+            if (v != null) this.set(x, y, z, v)
+          } else if (c != null) this.put(x, y, z, w)
         }
   }
   clear(x0, x1, y0, y1, z0, z1) {
@@ -126,20 +138,8 @@ export class VoxelGrid {
   // A view of this grid moved up by dy voxels: the upper body of a doll sitting on the floor.
   shifted(dy) {
     if (!dy) return this
-    const g = this
     const view = Object.create(VoxelGrid.prototype)
-    return Object.assign(view, {
-      sx: g.sx,
-      sy: g.sy,
-      sz: g.sz,
-      ox: g.ox,
-      oz: g.oz,
-      data: g.data,
-      bounds: g.bounds,
-      touch: (i) => g.touch(i),
-      index: (x, y, z) => g.index(x, y + dy, z),
-      shifted: (d) => g.shifted(dy + d),
-    })
+    return Object.assign(view, { sx: this.sx, sy: this.sy, sz: this.sz, ox: this.ox, oz: this.oz, data: this.data, bounds: this.bounds, dy: this.dy + dy })
   }
   // The same box on both sides of the doll: [x0, x1) and its mirror [-x1, -x0).
   mirrorBox(x0, x1, y0, y1, z0, z1, c) {

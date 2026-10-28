@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GoluScene from './three/GoluScene.jsx'
 import { prebuildLooks } from './three/bommai/Bommai.jsx'
-import Creator from './ui/Creator.jsx'
 import signboard from './assets/golu-signboard.png'
 import SoundToggle from './ui/SoundToggle.jsx'
 import GoluArrows from './ui/GoluNav.jsx'
@@ -11,6 +10,11 @@ import { addBommai, moveBommai, updateBommai, loadBommais, subscribeBommais, isL
 import { computeLayout, slotPos } from './three/golu/layout.js'
 import { share } from './lib/share.js'
 import { TOUCH, useMedia } from './lib/device.js'
+
+// The workshop is a separate download: the Golu doesn't need it until someone taps "Add your Bommai",
+// so it is fetched a few seconds after the page is up rather than with it.
+const loadCreator = () => import('./ui/Creator.jsx')
+const Creator = lazy(loadCreator)
 
 const MINE_KEY = 'golu.mine'
 // The sandbox never remembers whose Bommai is whose, so every reload is a first visit again.
@@ -71,6 +75,10 @@ export default function App() {
   const [draft, setDraft] = useState(() => ({ ...DEFAULT_CONFIG }))
   const [spawns, setSpawns] = useState({})
   // The opening camera pan waits for the Bommais (at most 3s) so it never lands on an empty Golu.
+  useEffect(() => {
+    const t = setTimeout(loadCreator, 4000)
+    return () => clearTimeout(t)
+  }, [])
   const [introReady, setIntroReady] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setIntroReady(true), 3000)
@@ -413,20 +421,24 @@ export default function App() {
 
         {/* CREATE */}
         {mode === 'create' && (
-          <Creator
-            initial={draft}
-            count={count}
-            onBack={() => setMode('home')}
-            onDone={(cfg) => {
-              setDraft(cfg)
-              startPlacing()
-            }}
-          />
+          <Suspense fallback={null}>
+            <Creator
+              initial={draft}
+              count={count}
+              onBack={() => setMode('home')}
+              onDone={(cfg) => {
+                setDraft(cfg)
+                startPlacing()
+              }}
+            />
+          </Suspense>
         )}
 
         {/* EDIT (your Bommai, already on the Golu) */}
         {mode === 'edit' && editing && (
-          <Creator key={editing.id} editing initial={normalizeConfig(editing)} count={count} onBack={() => setMode('home')} onDone={saveEdit} />
+          <Suspense fallback={null}>
+            <Creator key={editing.id} editing initial={normalizeConfig(editing)} count={count} onBack={() => setMode('home')} onDone={saveEdit} />
+          </Suspense>
         )}
 
         {/* PLACE */}
