@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import trackUrl from '../assets/golu-bgm.mp3'
 
-// Background music. It tries to start as soon as the page loads; browsers allow that only for
+// Background music. It tries to start once the page has loaded; browsers allow that only for
 // some visitors (in Chrome, people who already use this site; Safari and Firefox block it by
 // default), so otherwise it starts on the first click, tap or key press. Either way it fades in.
 // It loops without a gap (Web Audio, not <audio>), can be muted (remembered on this device), and
@@ -76,10 +76,16 @@ export function setMuted(m) {
   if (gain && gain.gain.value < VOLUME) fadeTo(VOLUME, 1.2)
 }
 
-// Try to start the music right away (unless the visitor muted it on an earlier visit), and make
-// sure it is running after the first interaction if the browser held it back.
+// Try to start the music soon after the page has loaded (unless the visitor muted it on an earlier
+// visit), and make sure it is running after the first interaction if the browser held it back.
 export function armMusic() {
-  if (!muted) start()
+  // The track is a big download (and the first thing the page asks for after its code), so it waits
+  // until the Golu has had time to load: a few seconds after the page's `load`, when the browser is idle.
+  if (!muted) {
+    const later = () => setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(start, { timeout: 4000 }) : start()), 2500)
+    if (document.readyState === 'complete') later()
+    else window.addEventListener('load', later, { once: true })
+  }
   const go = () => {
     window.removeEventListener('pointerdown', go, true)
     window.removeEventListener('keydown', go, true)

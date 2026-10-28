@@ -12,7 +12,16 @@ export const TOUCH = '(pointer: coarse)'
 const matches = (query) => window.matchMedia(query).matches
 
 // Phones have 3x screens; drawing the 3D at full density there makes them slow and hot.
-export const MAX_DPR = matches(SMALL_SCREEN) ? 1.5 : 2
+// the Golu inside another page (an iframe on a portfolio, say)
+export const EMBEDDED = (() => {
+  try {
+    return window.self !== window.top
+  } catch {
+    return true // a frame we aren't allowed to compare with is still a frame
+  }
+})()
+// A frame gets the lighter setting too: it shares the machine with the page around it.
+export const MAX_DPR = EMBEDDED || matches(SMALL_SCREEN) ? 1.5 : 2
 
 export function useMedia(query) {
   const [on, setOn] = useState(() => matches(query))

@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import Golu, { GoluLights } from './golu/Golu.jsx'
+import Golu, { GoluLights, warmGolu } from './golu/Golu.jsx'
 import Carousel from './golu/Carousel.jsx'
 import { GOLU, computeLayout } from './golu/layout.js'
 import Bommai from './bommai/Bommai.jsx'
@@ -10,6 +10,7 @@ import Petals from './Petals.jsx'
 import SoftEnv from './SoftEnv.jsx'
 import DragLayer from './DragLayer.jsx'
 import { MAX_DPR, PORTRAIT_ASPECT } from '../lib/device.js'
+import { useSeen } from '../lib/visibility.js'
 
 const HELD = new THREE.Vector3(-2.8, 0.02, 2.0) // where your Bommai waits, on the floor in front of the Golu
 const DRAFT_SCALE = 1.25
@@ -56,7 +57,7 @@ const ACTION = { NONE: 0, ROTATE: 1, TRUCK: 2, TOUCH_ROTATE: 64, TOUCH_DOLLY_TRU
 // Golu. With `swipe` (touch screens, on the home screen only: while placing, a drag that misses the
 // tiny doll must never turn the stage), a sideways swipe turns the stage straight away instead.
 // Every turn (`turnKey` changes) brings the camera back to the current shot.
-function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
+function CameraRig({ hold, shot, focus, controlsEnabled, view, carousel, onTurnBy, turnKey, swipe }) {
   const ref = useRef()
   const { size, gl } = useThree()
   const aspect = size.width / size.height
@@ -71,12 +72,12 @@ function CameraRig({ shot, focus, controlsEnabled, view, carousel, onTurnBy, tur
 
   useEffect(() => {
     const c = ref.current
-    if (!c) return
+    if (!c || hold) return // `hold`: the opening pan waits for the Bommais
     const s = shotFor(shot, aspect, focus)
     c.smoothTime = shot === 'focus' ? 0.45 : 0.7
     c.setLookAt(...s.pos, ...s.target, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shot, focusKey, aspect])
+  }, [shot, focusKey, aspect, hold])
 
   useEffect(() => {
     const c = ref.current
@@ -459,6 +460,7 @@ function Lights() {
 // space, which is where the Golu facing you stands. `onTurnBy(±1)` asks to turn to the next one;
 // with `swipeToTurn` (touch screens) a sideways swipe turns it.
 export default function GoluScene({
+  introReady = true,
   bommais,
   golus = 1,
   turn = { golu: 1, dir: 0, n: 0 },
@@ -479,6 +481,24 @@ export default function GoluScene({
   swipeToTurn = false,
 }) {
   const active = turn.golu
+  const seen = useSeen()
+  // The Golu facing you is built with the page. The others are built a moment later, one at a time,
+  // so they don't hold up the first one (a Golu you turn to before then is built when you do).
+  const [built, setBuilt] = useState(() => new Set())
+  useEffect(() => {
+    if (!introReady || golus < 2) return
+    let live = true
+    const t = setTimeout(async () => {
+      for (let g = 1; g <= golus && live; g++) {
+        await warmGolu(g)
+        if (live) setBuilt((b) => new Set(b).add(g))
+      }
+    }, 1200)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [introReady, golus])
   // each Golu's Bommais and where they stand on it
   const byGolu = useMemo(() => {
     const out = Array.from({ length: golus }, () => [])
@@ -512,7 +532,7 @@ export default function GoluScene({
     <Canvas
       shadows
       dpr={[1, MAX_DPR]}
-      frameloop={paused ? 'never' : 'always'}
+      frameloop={paused || !seen ? 'never' : 'always'}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       camera={{ fov: 34, position: [0, 4.4, 14], near: 0.1, far: 80 }}
       onPointerMissed={() => onPickBommai?.(null)}
@@ -521,6 +541,7 @@ export default function GoluScene({
         <Lights />
         <SoftEnv intensity={0.22} />
         <CameraRig
+          hold={!introReady}
           shot={shot}
           focus={focus}
           controlsEnabled={exploring}
@@ -537,6 +558,7 @@ export default function GoluScene({
           turn={turn}
           onTurning={setTurning}
           renderGolu={(g) => {
+            if (g !== active && !built.has(g)) return null
             const front = g === active && !turning
             return (
               <>

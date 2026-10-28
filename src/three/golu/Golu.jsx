@@ -55,6 +55,21 @@ export const TRADITIONAL_SLOTS = {
   ],
 }
 const slotsFor = (golu) => TRADITIONAL_SLOTS[golu] || TRADITIONAL_SLOTS[1]
+
+// What differs between Golus is the colours of the nine steps and the back wall; the rest of the
+// room is shared and built once. Building a Golu's steps and wall takes about half a second, so the
+// Golus that aren't facing you at the start are built ahead one model at a time, handing the thread
+// back in between (see GoluScene), and are then ready to mount without a pause.
+const pause = () => new Promise((done) => ('requestIdleCallback' in window ? requestIdleCallback(() => done(), { timeout: 300 }) : setTimeout(done, 16)))
+export async function warmGolu(golu) {
+  const theme = goluTheme(golu)
+  for (let k = 1; k <= GOLU.steps; k++) {
+    voxelGeometry(`step-${k}${theme.key}`, () => buildStep(k, theme))
+    await pause()
+  }
+  voxelGeometry(`wall${theme.key}`, () => buildWall(theme))
+  await pause()
+}
 const FLOOR_LAMPS = [-4.4, 4.4].map((x) => [x, 0, 2.2])
 
 // One step, fitted exactly to its width, rise and depth so Bommais stand on its tread.

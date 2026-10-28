@@ -4,13 +4,36 @@ import App from './App.jsx'
 import ErrorBoundary from './ui/ErrorBoundary.jsx'
 import './styles.css'
 import { armMusic } from './lib/music.js'
+import { prefetchBommais } from './lib/store.js'
+import { EMBEDDED } from './lib/device.js'
 
-// background music starts on the first click, tap or key press
-armMusic()
+function start() {
+  // background music starts a few seconds after load, or on the first click, tap or key press
+  armMusic()
 
-createRoot(document.getElementById('root')).render(
-  <ErrorBoundary>
-    <App />
-    <Analytics />
-  </ErrorBoundary>,
-)
+  // ask for the Bommais now, while the 3D scene is still loading
+  prefetchBommais()
+
+  createRoot(document.getElementById('root')).render(
+    <ErrorBoundary>
+      <App />
+      <Analytics />
+    </ErrorBoundary>,
+  )
+}
+
+// Inside another page's frame (a portfolio, say) the Golu waits until the frame is nearly in view
+// before it builds anything, so a Golu further down the page doesn't slow the page above it.
+if (EMBEDDED && 'IntersectionObserver' in window) {
+  const watch = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      watch.disconnect()
+      start()
+    },
+    { rootMargin: '300px' },
+  )
+  watch.observe(document.getElementById('root'))
+} else {
+  start()
+}

@@ -41,6 +41,17 @@ Vercel project `internet-golu` is linked to this repo with `VITE_SUPABASE_URL` a
 - `src/lib/store.js` is the only place that talks to Supabase.
 - **Sandbox (`?sandbox` on any URL):** a practice Golu for running the flow again and again, for testing or screen recording. It starts from the real Golu, but what you add, move or edit stays in that tab and never reaches the database; reloading starts over as a first-time visitor (your real Bommai is ignored, and the *Preview* badge is hidden). Every Golu is open in the sandbox, even before the database has the second-Golu migration.
 
+## Loading speed
+
+What keeps the first load quick (and a Golu embedded in another page from slowing that page):
+
+- **Dolls are built in Web Workers** (`src/three/bommai/looks.js`, `looks.worker.js`), so the main thread only wraps ready-made arrays in geometry. Without this, 168 dolls took several seconds of main-thread time.
+- **Only the Golu facing you is built with the page.** The steps and back wall of each other Golu (the only things that differ between Golus besides colours) are built a moment later, one model at a time with a pause between (`warmGolu` in `src/three/golu/Golu.jsx`, started from `GoluScene.jsx`). A Golu you turn to before then is built when you do.
+- **Embedded in a frame, it waits to be seen** (`EMBEDDED` in `src/lib/device.js`, `src/main.jsx`): the page builds nothing and fetches nothing until the frame is within 300px of the viewport, and the 3D stops drawing while the tab is hidden or the frame is scrolled out of view (`src/lib/visibility.js`). Frames also draw at a lower pixel density. On the embedding page, `<iframe loading="lazy">` saves even the download.
+- **The music** (843 KB) starts a few seconds after load, not with the page; the **workshop** is its own file, fetched after a few seconds; the hidden thumbnail canvas is only made when the workshop first asks for a picture; the **fonts** load without blocking the first paint, and a small "Setting up the Golu…" shows until the app is up.
+- **Libraries are separate files** (`vite.config.js`: `react`, `three`, `supabase`), so an update to the app's own code doesn't make returning visitors download three.js again.
+- `VoxelGrid` (`src/three/voxel/grid.js`) tracks the box it has drawn into so meshing only sweeps that, and caches colour parsing; the big stage grids draw millions of voxels.
+
 ## Supabase
 
 - Schema, RLS and realtime: `supabase/migrations/20261013000000_bommais.sql`. Seeds: `supabase/seed.sql` (regenerate from `src/data/seed.js` with `npm run seed:sql`).
