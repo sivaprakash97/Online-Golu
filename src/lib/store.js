@@ -217,7 +217,19 @@ try {
 if (SANDBOX) store = sandboxStore(store)
 
 // If the network call to Supabase fails (e.g. inside a sandboxed preview), fall back once.
-export async function loadBommais() {
+// The first call is shared: main.jsx starts it at page load, so the Bommais are usually here by the
+// time the scene has mounted instead of the empty Golu waiting on the network.
+let loading
+export function loadBommais() {
+  if (loading) {
+    const p = loading
+    loading = null
+    return p
+  }
+  return fetchBommais()
+}
+export const prefetchBommais = () => (loading ||= fetchBommais())
+async function fetchBommais() {
   try {
     return await store.list()
   } catch (e) {
