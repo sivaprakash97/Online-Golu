@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import GoluScene from './three/GoluScene.jsx'
 import { prebuildLooks } from './three/bommai/Bommai.jsx'
 import signboard from './assets/golu-signboard.png'
-import SoundToggle from './ui/SoundToggle.jsx'
 import GoluArrows from './ui/GoluNav.jsx'
 import { ThumbnailProvider } from './three/Thumbnails.jsx'
 import { DEFAULT_CONFIG, normalizeConfig, freeSpotsByGolu } from './data/options.js'
@@ -410,8 +409,7 @@ export default function App() {
               </span>
             </p>
             {/* secondary controls, kept quiet so "Add your Bommai" is the one that stands out */}
-            <div className="view-controls" role="group" aria-label="Music and view">
-              <SoundToggle />
+            <div className="view-controls" role="group" aria-label="View">
               <button className="view-reset" onClick={resetView} aria-label="Reset view" title="Reset view">
                 ⟲ <span>Reset view</span>
               </button>
@@ -481,12 +479,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {(placing || mode === 'done') && (
-          <div className="view-controls" role="group" aria-label="Music">
-            <SoundToggle />
           </div>
         )}
 
